@@ -182,7 +182,7 @@ curl -X POST http://localhost:3000/api/transactions \
 - [x] Rules engine
 - [x] REST API
 - [x] Dashboard UI
-- [ ] Stripe integration (real payments)
+- [x] Stripe integration (real payments)
 - [ ] Agent-to-agent transfers
 - [ ] Escrow for marketplace transactions
 - [ ] Webhooks for transaction events
