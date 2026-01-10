@@ -1,0 +1,122 @@
+// Agent Wallet SDK - Database Schema
+// Financial infrastructure for AI agents
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// The human or company that owns agents
+model Owner {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  apiKey    String   @unique @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  agents    Agent[]
+}
+
+// An AI agent that can hold wallets and transact
+model Agent {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  owner     Owner    @relation(fields: [ownerId], references: [id])
+  apiKey    String   @unique @default(uuid())
+  status    AgentStatus @default(ACTIVE)
+  metadata  Json?    // Flexible field for agent-specific data
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  wallets   Wallet[]
+}
+
+enum AgentStatus {
+  ACTIVE
+  PAUSED
+  SUSPENDED
+}
+
+// A wallet holding funds for an agent
+model Wallet {
+  id           String        @id @default(uuid())
+  agentId      String
+  agent        Agent         @relation(fields: [agentId], references: [id])
+  balance      Decimal       @default(0) @db.Decimal(18, 2)
+  currency     String        @default("USD")
+  status       WalletStatus  @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  rules        SpendRule[]
+  transactions Transaction[]
+}
+
+enum WalletStatus {
+  ACTIVE
+  FROZEN
+  CLOSED
+}
+
+// Spend control rules for a wallet
+model SpendRule {
+  id         String     @id @default(uuid())
+  walletId   String
+  wallet     Wallet     @relation(fields: [walletId], references: [id])
+  ruleType   RuleType
+  parameters Json       // Flexible params for different rule types
+  active     Boolean    @default(true)
+  priority   Int        @default(0) // Higher priority rules evaluated first
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+enum RuleType {
+  DAILY_LIMIT          // Max spend per day
+  PER_TRANSACTION_LIMIT // Max per single transaction
+  WEEKLY_LIMIT         // Max spend per week
+  MONTHLY_LIMIT        // Max spend per month
+  CATEGORY_WHITELIST   // Only allow certain categories
+  CATEGORY_BLACKLIST   // Block certain categories
+  RECIPIENT_WHITELIST  // Only pay certain recipients
+  RECIPIENT_BLACKLIST  // Block certain recipients
+  TIME_WINDOW          // Only allow transactions during certain hours
+  REQUIRES_APPROVAL    // Flag transactions for human approval above threshold
+}
+
+// A transaction (attempted or completed)
+model Transaction {
+  id              String            @id @default(uuid())
+  walletId        String
+  wallet          Wallet            @relation(fields: [walletId], references: [id])
+  amount          Decimal           @db.Decimal(18, 2)
+  currency        String            @default("USD")
+  recipientId     String?           // Could be another agent wallet or external
+  recipientType   RecipientType     @default(EXTERNAL)
+  category        String?
+  description     String?
+  status          TransactionStatus @default(PENDING)
+  ruleCheckResults Json?            // Which rules passed/failed
+  metadata        Json?             // Additional transaction data
+  createdAt       DateTime          @default(now())
+  completedAt     DateTime?
+}
+
+enum RecipientType {
+  AGENT_WALLET  // Another agent on the platform
+  EXTERNAL      // External payment (Stripe, bank, etc.)
+  ESCROW        // Held in escrow
+}
+
+enum TransactionStatus {
+  PENDING           // Awaiting rule check
+  APPROVED          // Passed rules, ready to execute
+  AWAITING_APPROVAL // Flagged for human review
+  REJECTED          // Failed rules
+  COMPLETED         // Successfully executed
+  FAILED            // Execution failed
+  CANCELLED         // Cancelled by user/agent
+}
