@@ -9,8 +9,8 @@ import {
 // ============================================
 // CONFIGURATION
 // ============================================
-const API_BASE_URL = 'http://localhost:3000';
-const DEMO_MODE_DEFAULT = true; // Start in demo mode if API not available
+const API_BASE_URL = 'https://agentwallet-api-164814074525.us-central1.run.app';
+const DEMO_MODE_DEFAULT = false;
 
 // ============================================
 // API SERVICE
