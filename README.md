@@ -1,77 +1,72 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/JackD720/agentwallet/main/assets/logo.svg" width="80" height="80" alt="AgentWallet Logo">
+  <img src="https://img.shields.io/badge/status-beta-yellow" alt="Status: Beta">
+  <img src="https://img.shields.io/github/license/JackD720/agentwallet" alt="License: MIT">
+  <img src="https://img.shields.io/github/stars/JackD720/agentwallet?style=social" alt="GitHub Stars">
 </p>
 
-<h1 align="center">AgentWallet</h1>
+<h1 align="center">🔐 AgentWallet</h1>
 
 <p align="center">
   <strong>Financial infrastructure for AI agents</strong><br>
-  Wallets, spend controls, and transaction rails for the agent economy.
+  Give your AI agents the ability to spend money safely.
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
   <a href="#quick-start">Quick Start</a> •
-  <a href="#documentation">Docs</a> •
-  <a href="#roadmap">Roadmap</a> •
-  <a href="#contributing">Contributing</a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
-  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
-  <img src="https://img.shields.io/badge/node-%3E%3D18-green.svg" alt="Node">
+  <a href="#features">Features</a> •
+  <a href="#use-cases">Use Cases</a> •
+  <a href="#api-reference">API</a> •
+  <a href="#dashboard">Dashboard</a> •
+  <a href="https://arxiv.org/abs/2501.10114">Research Paper</a>
 </p>
 
 ---
 
 ## The Problem
 
-AI agents are increasingly capable of taking actions in the world — browsing the web, making purchases, hiring services. But there's no standard infrastructure for agents to:
+AI agents are becoming autonomous. They browse the web, book flights, purchase items, and hire services. But right now, giving an agent financial access means:
 
-- Hold and manage funds safely
-- Operate within spending guardrails
-- Transact with other agents or services
-- Maintain audit trails for accountability
+- 🚨 Handing over your credit card or API keys
+- 🚨 No spending limits or controls
+- 🚨 No audit trail of what happened
+- 🚨 One bad decision = unlimited damage
 
 ## The Solution
 
-AgentWallet provides the financial rails for AI agents:
+AgentWallet provides **wallets with guardrails** for AI agents:
 
+```javascript
+import { AgentWallet } from '@agentwallet/sdk';
+
+// Create a wallet with spend controls
+const wallet = await AgentWallet.create({
+  name: 'shopping-agent',
+  dailyLimit: 100.00,
+  maxTransaction: 25.00,
+  allowedCategories: ['retail', 'groceries']
+});
+
+// Agent can now spend within limits
+const result = await wallet.spend({
+  amount: 19.99,
+  recipient: 'amazon.com',
+  reason: 'Purchased AA batteries as requested by user'
+});
+
+// ✅ Transaction approved - within policy
+// Full audit trail logged automatically
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Owner     │────▶│  Agent(s)   │────▶│  Wallet(s)  │
-└─────────────┘     └─────────────┘     └─────────────┘
-                                              │
-                    ┌─────────────────────────┼─────────────────────────┐
-                    │                         ▼                         │
-              ┌─────────────┐          ┌─────────────┐          ┌───────────────┐
-              │ Spend Rules │◀────────▶│Rules Engine │─────────▶│ Transactions  │
-              └─────────────┘          └─────────────┘          └───────────────┘
-```
 
-## Features
-
-🏦 **Agent Wallets** — Each agent gets dedicated wallets with balance tracking
-
-🛡️ **Spend Controls** — Configurable rules: daily limits, per-transaction caps, category restrictions, approval workflows
-
-💸 **Transaction Rails** — Full audit trail with rule evaluation logs for every transaction
-
-🔐 **Dual Authentication** — Separate API keys for owners (full control) and agents (scoped access)
-
-📊 **Dashboard** — Real-time monitoring UI for approvals, transactions, and agent management
-
-🔌 **API-First** — RESTful API designed for agent integration
+---
 
 ## Quick Start
 
-### Option 1: SDK Only
+### Installation
 
 ```bash
 # Clone the repo
 git clone https://github.com/JackD720/agentwallet.git
-cd agentwallet/packages/sdk
+cd agentwallet
 
 # Install dependencies
 npm install
@@ -84,139 +79,312 @@ cp .env.example .env
 npm run db:generate
 npm run db:migrate
 
-# Seed test data
-node prisma/seed.js
-
 # Start the server
 npm run dev
 ```
 
-Server runs at `http://localhost:3000`
+### Basic Usage
 
-### Option 2: Full Stack (SDK + Dashboard)
+```javascript
+import { AgentWallet, SpendPolicy } from '@agentwallet/sdk';
 
-```bash
-# Terminal 1: Start SDK
-cd packages/sdk
-npm install && npm run dev
+// 1. Create a wallet
+const wallet = await AgentWallet.create({
+  name: 'my-agent',
+  policy: new SpendPolicy({
+    dailyLimit: 50.00,
+    maxTransaction: 20.00,
+    requireApproval: false,  // Auto-approve within limits
+    allowedMerchants: ['*'], // All merchants
+  })
+});
 
-# Terminal 2: Start Dashboard
-cd packages/dashboard
-npm install && npm run dev
+// 2. Check balance
+const balance = await wallet.getBalance();
+console.log(`Available: $${balance.available}`);
+
+// 3. Spend money
+const tx = await wallet.spend({
+  amount: 15.00,
+  recipient: 'stripe.com',
+  reason: 'API credits for data processing',
+  metadata: { taskId: 'abc123' }
+});
+
+// 4. Get transaction history
+const history = await wallet.getTransactions({ limit: 10 });
+
+// 5. Update limits on the fly
+await wallet.updatePolicy({
+  dailyLimit: 100.00  // Increase limit
+});
 ```
 
-Dashboard runs at `http://localhost:5173`
+---
 
-## API Overview
+## Features
 
-### Create an Agent
+### 🔒 Spend Controls
 
-```bash
-curl -X POST http://localhost:3000/api/agents \
-  -H "Authorization: Bearer YOUR_OWNER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-ai-agent"}'
+Set granular limits on what your agent can spend:
+
+| Control | Description |
+|---------|-------------|
+| `dailyLimit` | Maximum spend per 24 hours |
+| `weeklyLimit` | Maximum spend per week |
+| `monthlyLimit` | Maximum spend per month |
+| `maxTransaction` | Maximum single transaction |
+| `allowedCategories` | Restrict to specific merchant types |
+| `blockedCategories` | Block specific merchant types |
+| `allowedMerchants` | Whitelist specific merchants |
+| `blockedMerchants` | Blacklist specific merchants |
+| `requireApproval` | Human approval for transactions over threshold |
+| `timeWindow` | Only allow transactions during certain hours |
+
+### 📊 Complete Audit Trail
+
+Every transaction is logged with full context:
+
+```json
+{
+  "id": "tx_abc123",
+  "timestamp": "2026-01-26T12:00:00Z",
+  "amount": 15.00,
+  "recipient": "openai.com",
+  "status": "approved",
+  "reason": "Purchased API credits for task #456",
+  "agentId": "agent_xyz",
+  "walletId": "wallet_123",
+  "policySnapshot": { ... },
+  "ruleEvaluations": [
+    { "rule": "DAILY_LIMIT", "passed": true },
+    { "rule": "MAX_TRANSACTION", "passed": true }
+  ],
+  "metadata": { "taskId": "456", "model": "gpt-4" }
+}
 ```
 
-### Create a Wallet
+### ⚡ Real-time Dashboard
 
-```bash
-curl -X POST http://localhost:3000/api/wallets \
-  -H "Authorization: Bearer YOUR_OWNER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"agentId": "AGENT_ID"}'
+- Live transaction feed showing all agent spending
+- Wallet balance overview with charts
+- Pending approval queue with one-click approve/reject
+- Agent management (pause, resume, configure)
+- Spend analytics and trends
+- Alert configuration for anomalies
+
+### 🛡️ Rules Engine
+
+Powerful policy engine that evaluates transactions against multiple rules:
+
+```javascript
+// Example: Complex policy
+const policy = {
+  rules: [
+    { type: 'DAILY_LIMIT', params: { limit: 500 } },
+    { type: 'PER_TRANSACTION_LIMIT', params: { limit: 100 } },
+    { type: 'CATEGORY_WHITELIST', params: { categories: ['software', 'advertising'] } },
+    { type: 'REQUIRES_APPROVAL', params: { threshold: 75 } },
+    { type: 'TIME_WINDOW', params: { startHour: 9, endHour: 17 } }
+  ]
+};
 ```
 
-### Add Spend Rules
+### 🔌 Easy Integrations
 
-```bash
-curl -X POST http://localhost:3000/api/rules \
-  -H "Authorization: Bearer YOUR_OWNER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "walletId": "WALLET_ID",
-    "ruleType": "DAILY_LIMIT",
-    "parameters": {"limit": 500}
-  }'
+Works with popular agent frameworks:
+
+```javascript
+// LangChain
+import { AgentWalletTool } from '@agentwallet/langchain';
+const tools = [new AgentWalletTool(wallet)];
+
+// AutoGPT (coming soon)
+// CrewAI (coming soon)
+// OpenAI Function Calling (coming soon)
 ```
 
-### Make a Transaction (as Agent)
+---
 
-```bash
-curl -X POST http://localhost:3000/api/transactions \
-  -H "Authorization: Bearer AGENT_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "walletId": "WALLET_ID",
-    "amount": 50,
-    "category": "advertising",
-    "description": "Google Ads spend"
-  }'
+## Use Cases
+
+### 🛒 Shopping Agents
+Agent that purchases items on behalf of users, with budget limits.
+
+### 📈 Trading Agents
+AI that trades prediction markets or stocks with strict risk controls.
+
+### 💼 Business Automation
+Auto-pay invoices, manage subscriptions, handle procurement.
+
+### 🤖 Autonomous Services
+Agents that pay for their own compute, storage, and API calls.
+
+### 🎮 Gaming NPCs
+Game characters with real economies and purchasing power.
+
+---
+
+## API Reference
+
+### REST Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/agents` | POST | Create a new agent |
+| `/api/agents/:id` | GET | Get agent details |
+| `/api/wallets` | POST | Create a wallet for an agent |
+| `/api/wallets/:id` | GET | Get wallet balance and details |
+| `/api/transactions` | POST | Execute a transaction |
+| `/api/transactions` | GET | List transactions with filters |
+| `/api/rules` | POST | Add spend rules to a wallet |
+| `/api/rules/:id` | DELETE | Remove a spend rule |
+
+### Wallet Methods (SDK)
+
+| Method | Description |
+|--------|-------------|
+| `AgentWallet.create(config)` | Create a new wallet |
+| `wallet.getBalance()` | Get current balance |
+| `wallet.spend(params)` | Execute a transaction |
+| `wallet.deposit(amount)` | Add funds to wallet |
+| `wallet.getTransactions(query)` | Get transaction history |
+| `wallet.updatePolicy(policy)` | Update spend controls |
+| `wallet.pause()` | Pause all transactions |
+| `wallet.resume()` | Resume transactions |
+
+### SpendPolicy Options
+
+```typescript
+interface SpendPolicy {
+  dailyLimit: number;
+  weeklyLimit?: number;
+  monthlyLimit?: number;
+  maxTransaction: number;
+  minTransaction?: number;
+  allowedCategories?: string[];
+  blockedCategories?: string[];
+  allowedMerchants?: string[];
+  blockedMerchants?: string[];
+  requireApproval?: boolean;
+  approvalThreshold?: number;
+  webhookUrl?: string;
+}
 ```
 
-## Spend Rule Types
+---
 
-| Rule | Description | Parameters |
-|------|-------------|------------|
-| `PER_TRANSACTION_LIMIT` | Max per single transaction | `{limit: number}` |
-| `DAILY_LIMIT` | Max spend per day | `{limit: number}` |
-| `WEEKLY_LIMIT` | Max spend per week | `{limit: number}` |
-| `MONTHLY_LIMIT` | Max spend per month | `{limit: number}` |
-| `CATEGORY_WHITELIST` | Only allow certain categories | `{categories: string[]}` |
-| `CATEGORY_BLACKLIST` | Block certain categories | `{categories: string[]}` |
-| `RECIPIENT_WHITELIST` | Only pay certain recipients | `{recipients: string[]}` |
-| `RECIPIENT_BLACKLIST` | Block certain recipients | `{recipients: string[]}` |
-| `TIME_WINDOW` | Only allow during certain hours | `{startHour, endHour}` |
-| `REQUIRES_APPROVAL` | Flag for human review | `{threshold: number}` |
+## Dashboard
 
-## Documentation
+AgentWallet includes a web dashboard for monitoring:
 
-- [API Reference](./docs/api.md)
-- [SDK Integration Guide](./docs/sdk-guide.md)
-- [Dashboard Setup](./docs/dashboard.md)
-- [Deployment Guide](./docs/deployment.md)
+```bash
+# Start both SDK and Dashboard
+cd packages/sdk && npm run dev &
+cd packages/dashboard && npm run dev
+```
+
+Then visit `http://localhost:5173`
+
+**Dashboard Features:**
+- Real-time transaction feed
+- Wallet balance overview
+- Pending approvals queue
+- Spend analytics & charts
+- Policy management UI
+- Agent status controls
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Your AI Agent                          │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    AgentWallet SDK                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │   Wallet    │  │   Policy    │  │   Audit Logger      │  │
+│  │   Manager   │  │   Engine    │  │                     │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │   Rules     │  │  Webhooks   │  │   Payment Gateway   │  │
+│  │   Engine    │  │             │  │   (Stripe)          │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     PostgreSQL                              │
+│            (Wallets, Transactions, Policies)                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Roadmap
 
-- [x] Core wallet SDK
-- [x] Rules engine
+- [x] Core wallet functionality
+- [x] Spend policies & limits
+- [x] Rules engine (10 rule types)
+- [x] Transaction audit logging
 - [x] REST API
-- [x] Dashboard UI
-- [x] Stripe integration (real payments)
-- [ ] Agent-to-agent transfers
-- [ ] Escrow for marketplace transactions
-- [ ] Webhooks for transaction events
-- [ ] TypeScript SDK for agent developers
-- [ ] Python SDK
+- [x] React dashboard
+- [x] Stripe payment integration
+- [ ] LangChain integration
 - [ ] Multi-currency support
+- [ ] Agent-to-agent transfers
+- [ ] Escrow for marketplaces
+- [ ] Python SDK
+- [ ] Mobile app
+- [ ] SOC2 compliance
 
-## Why AgentWallet?
+---
 
-As AI agents become more autonomous, we need infrastructure that:
+## Research
 
-1. **Enables** agents to participate in economic activity
-2. **Constrains** agents to operate within human-defined boundaries
-3. **Attributes** actions to responsible parties for accountability
+AgentWallet is referenced in academic research on AI agent infrastructure:
 
-This aligns with emerging research on [agent infrastructure](https://arxiv.org/abs/2501.10114) — the protocols and systems needed for safe, beneficial AI agent deployment.
+📄 **"Infrastructure for AI Agents"** - [arXiv:2501.10114](https://arxiv.org/abs/2501.10114)
+
+---
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-Areas we'd love help with:
-- Stripe/payment integrations
-- Additional SDKs (Python, Go)
-- Dashboard improvements
-- Documentation
-- Testing
+```bash
+# Run tests
+npm test
+
+# Run linter
+npm run lint
+
+# Build for production
+npm run build
+```
+
+---
 
 ## License
 
-MIT © Jack Davis
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## Links
+
+- 🌐 [Website](https://agentwallet-three.vercel.app)
+- 📄 [Documentation](https://docs.agentwallet.dev) (coming soon)
+- 💬 [Discord](https://discord.gg/agentwallet) (coming soon)
+- 🐦 [Twitter](https://twitter.com/jackdavis720)
 
 ---
 
 <p align="center">
-  Built for the agent economy 🤖💰
+  <strong>Built for the autonomous agent economy.</strong><br>
+  <sub>Made with ❤️ by <a href="https://twitter.com/jackdavis720">@jackdavis720</a></sub>
 </p>
