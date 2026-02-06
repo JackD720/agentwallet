@@ -9,7 +9,7 @@ import {
   Zap, Clock, RefreshCw, Loader2, TrendingUp
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8100';
+const API_BASE = 'https://kalshi-api-164814074525.us-central1.run.app';
 
 // ─────────────────────────────────────────────────────────────────
 // API Helper
