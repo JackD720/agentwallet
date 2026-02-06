@@ -5,6 +5,7 @@ import {
   ChevronRight, Settings, Search, Bell, Plus, Filter, RefreshCw,
   Zap, TrendingUp, Eye, EyeOff, Copy, Loader2, WifiOff, Database
 } from 'lucide-react';
+import KalshiTradingDashboard from './components/AgentWalletDashboard';
 
 // ============================================
 // CONFIGURATION
@@ -212,64 +213,60 @@ const ConnectionStatus = ({ connected, demoMode }) => (
     {demoMode ? (
       <>
         <Database size={12} />
-        Demo Mode
+        Demo
       </>
     ) : connected ? (
       <>
-        <Zap size={12} />
+        <Activity size={12} />
         Live
       </>
     ) : (
       <>
         <WifiOff size={12} />
-        Disconnected
+        Offline
       </>
     )}
   </div>
 );
 
-// Toast Notification
+// Toast Component
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 3000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
+  const colors = {
+    success: 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400',
+    error: 'bg-red-500/20 border-red-500/30 text-red-400',
+    info: 'bg-blue-500/20 border-blue-500/30 text-blue-400',
+  };
+
   return (
-    <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-2xl flex items-center gap-3 animate-slide-up z-50 ${
-      type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-indigo-500'
-    }`}>
-      {type === 'success' ? <CheckCircle size={18} /> : type === 'error' ? <XCircle size={18} /> : <AlertCircle size={18} />}
-      <span className="font-medium">{message}</span>
+    <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg border ${colors[type]} animate-slide-up flex items-center gap-2`}>
+      {type === 'success' && <CheckCircle size={16} />}
+      {type === 'error' && <XCircle size={16} />}
+      {type === 'info' && <AlertCircle size={16} />}
+      {message}
     </div>
   );
 };
 
-// ============================================
-// TABS
-// ============================================
-
 // Overview Tab
 const OverviewTab = ({ data, loading, setActiveTab, onRefresh }) => (
   <>
-    <div className="flex justify-between items-center mb-6">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-300">Quick Stats</h2>
-        <p className="text-sm text-slate-500">Real-time overview of your agent economy</p>
-      </div>
-      <button onClick={onRefresh} className="btn-secondary">
-        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        Refresh
-      </button>
-    </div>
-
-    {/* Metrics Grid */}
-    <div className="metrics-grid">
+    {/* Stats Grid */}
+    <div className="stats-grid">
       <MetricCard 
         icon={Bot} 
-        label="Active Agents" 
-        value={data.stats.totalAgents}
-        subValue={`${data.agents.filter(a => a.status === 'ACTIVE').length} active`}
+        label="Total Agents" 
+        value={data.stats.totalAgents} 
+        loading={loading}
+      />
+      <MetricCard 
+        icon={Wallet} 
+        label="Active Wallets" 
+        value={data.stats.activeWallets}
         loading={loading}
       />
       <MetricCard 
@@ -280,28 +277,19 @@ const OverviewTab = ({ data, loading, setActiveTab, onRefresh }) => (
         loading={loading}
       />
       <MetricCard 
-        icon={Activity} 
-        label="Today's Transactions" 
-        value={data.stats.todayTransactions}
-        subValue={`$${data.stats.todayVolume.toLocaleString()} volume`}
-        trend={8}
-        loading={loading}
-      />
-      <MetricCard 
         icon={AlertCircle} 
         label="Pending Approvals" 
         value={data.stats.pendingApprovals}
-        subValue="Requires your attention"
         loading={loading}
       />
     </div>
 
-    {/* Two Column Layout */}
-    <div className="two-column">
+    {/* Activity Section */}
+    <div className="grid-2-col">
       {/* Recent Transactions */}
       <div className="card">
         <div className="card-header">
-          <h3>Recent Transactions</h3>
+          <h3>Recent Activity</h3>
           <button className="btn-text" onClick={() => setActiveTab('transactions')}>
             View all <ChevronRight size={16} />
           </button>
@@ -761,7 +749,7 @@ const RulesTab = ({ rules, loading }) => {
 // ============================================
 // MAIN APP
 // ============================================
-export default function AgentWalletDashboard() {
+export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [data, setData] = useState(demoData);
   const [loading, setLoading] = useState(false);
@@ -985,6 +973,12 @@ export default function AgentWalletDashboard() {
             active={activeTab === 'rules'} 
             onClick={() => setActiveTab('rules')} 
           />
+          <NavItem 
+            icon={Zap} 
+            label="Kalshi Trading" 
+            active={activeTab === 'kalshi'} 
+            onClick={() => setActiveTab('kalshi')} 
+          />
         </nav>
 
         <div className="sidebar-footer">
@@ -1021,6 +1015,7 @@ export default function AgentWalletDashboard() {
               {activeTab === 'transactions' && 'Transactions'}
               {activeTab === 'approvals' && 'Pending Approvals'}
               {activeTab === 'rules' && 'Spend Rules'}
+              {activeTab === 'kalshi' && 'Kalshi Trading'}
             </h1>
             <p className="page-subtitle">
               {activeTab === 'overview' && 'Monitor your AI agent financial activity'}
@@ -1029,6 +1024,7 @@ export default function AgentWalletDashboard() {
               {activeTab === 'transactions' && 'Complete transaction history'}
               {activeTab === 'approvals' && `${data.stats.pendingApprovals} transactions need your review`}
               {activeTab === 'rules' && 'Configure spend policies and guardrails'}
+              {activeTab === 'kalshi' && 'AI agent prediction market trading with guardrails'}
             </p>
           </div>
           <div className="header-actions">
@@ -1091,6 +1087,9 @@ export default function AgentWalletDashboard() {
               <h3>Wallets View</h3>
               <p>Coming soon - View all wallets across agents</p>
             </div>
+          )}
+          {activeTab === 'kalshi' && (
+            <KalshiTradingDashboard />
           )}
         </div>
       </main>

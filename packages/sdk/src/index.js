@@ -10,6 +10,8 @@ const ruleRoutes = require('./routes/rules');
 const transactionRoutes = require('./routes/transactions');
 const stripeRoutes = require('./routes/stripe');
 const webhookRoutes = require('./routes/webhooks');
+const killswitchRoutes = require('./routes/killswitch');
+const auditRoutes = require('./routes/audit');
 
 // Middleware
 const { authenticateApiKey } = require('./middleware/auth');
@@ -39,6 +41,9 @@ app.use('/api/wallets', authenticateApiKey, walletRoutes);
 app.use('/api/rules', authenticateApiKey, ruleRoutes);
 app.use('/api/transactions', authenticateApiKey, transactionRoutes);
 app.use('/api/stripe', authenticateApiKey, stripeRoutes);
+app.use('/api/killswitch', authenticateApiKey, killswitchRoutes);
+app.use('/api/audit', authenticateApiKey, auditRoutes);
+
 
 // Error handling
 app.use(errorHandler);
