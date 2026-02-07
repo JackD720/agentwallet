@@ -6,7 +6,7 @@ import {
   Zap, TrendingUp, Eye, EyeOff, Copy, Loader2, WifiOff, Database
 } from 'lucide-react';
 import KalshiTradingDashboard from './components/AgentWalletDashboard';
-
+import AgentWalletGovernanceDashboard from './components/AgentWalletGovernanceDashboard';
 // ============================================
 // CONFIGURATION
 // ============================================
@@ -749,7 +749,8 @@ const RulesTab = ({ rules, loading }) => {
 // ============================================
 // MAIN APP
 // ============================================
-export default function App() {
+
+export default function App() { 
   const [activeTab, setActiveTab] = useState('overview');
   const [data, setData] = useState(demoData);
   const [loading, setLoading] = useState(false);
