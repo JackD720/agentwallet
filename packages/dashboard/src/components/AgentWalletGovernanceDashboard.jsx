@@ -1,109 +1,29 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
-// ─── Demo Data: mirrors governance_bridge.py output ───
-const DEMO_SIGNALS = [
-  {
-    id: "sig_001",
-    market: "Bitcoin above $100k on Feb 28?",
-    ticker: "KXBTC-26FEB-B100K",
-    direction: "YES",
-    price: 0.58,
-    arsScore: 0.72,
-    entryQuality: "good",
-    conviction: 0.35,
-    numTraders: 7,
-    totalSize: 45000,
-    recommendedSize: 0.04,
-    contracts: 34,
-    costCents: 1938,
-    category: "Crypto",
-    traders: ["whale_01", "shark_02", "prof_03", "quant_04", "macro_05"],
-  },
-  {
-    id: "sig_002",
-    market: "Fed rate cut in March 2026?",
-    ticker: "KXFED-26MAR-RATECUT",
-    direction: "NO",
-    price: 0.73,
-    arsScore: 0.55,
-    entryQuality: "fair",
-    conviction: 0.20,
-    numTraders: 4,
-    totalSize: 28000,
-    recommendedSize: 0.03,
-    contracts: 19,
-    costCents: 1387,
-    category: "Economics",
-    traders: ["macro_king", "fed_watcher", "bond_guru"],
-  },
-  {
-    id: "sig_003",
-    market: "GPT-5 released before March?",
-    ticker: "KXAI-26FEB-GPT5",
-    direction: "YES",
-    price: 0.82,
-    arsScore: 0.18,
-    entryQuality: "very_late",
-    conviction: 0.10,
-    numTraders: 2,
-    totalSize: 12000,
-    recommendedSize: 0.01,
-    contracts: 5,
-    costCents: 410,
-    category: "Tech",
-    traders: ["tech_bet_01"],
-  },
-  {
-    id: "sig_004",
-    market: "US recession declared Q1 2026?",
-    ticker: "KXECON-26Q1-RECESS",
-    direction: "NO",
-    price: 0.91,
-    arsScore: 0.81,
-    entryQuality: "good",
-    conviction: 0.45,
-    numTraders: 9,
-    totalSize: 67000,
-    recommendedSize: 0.06,
-    contracts: 30,
-    costCents: 2730,
-    category: "Economics",
-    traders: ["econ_prof", "hedge_01", "macro_king", "quant_04"],
-  },
-  {
-    id: "sig_005",
-    market: "Super Bowl LX over 49.5?",
-    ticker: "KXSPORT-SB-TOTAL",
-    direction: "YES",
-    price: 0.51,
-    arsScore: 0.22,
-    entryQuality: "good",
-    conviction: 0.08,
-    numTraders: 2,
-    totalSize: 5000,
-    recommendedSize: 0.02,
-    contracts: 18,
-    costCents: 918,
-    category: "Sports",
-    traders: ["sports_degen"],
-  },
-];
+// ─── API Configuration ───
+const TRADER_API = 'https://live-trader-164814074525.us-central1.run.app';
+const PREDICTOR_API = 'https://predictor-agent-api-164814074525.us-central1.run.app';
 
-const GOVERNANCE_CONFIG = {
-  maxPerTrade: 2000,
-  maxDaily: 5000,
-  maxWeekly: 15000,
-  minArsScore: 0.3,
-  minConviction: 0.05,
-  allowedQualities: ["good", "fair"],
-  drawdownThreshold: 0.20,
-  consecutiveLossLimit: 5,
-};
+async function traderRequest(method, path, body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${TRADER_API}${path}`, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Request failed');
+  return data;
+}
 
-// ─── Rule evaluation engine (mirrors Python) ───
+async function predictorRequest(path) {
+  const res = await fetch(`${PREDICTOR_API}${path}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Request failed');
+  return data;
+}
+
+// ─── Rule evaluation engine (mirrors Python governance_bridge.py) ───
 function evaluateSignal(signal, walletState, config) {
   const rules = [];
-  const cost = signal.costCents;
+  const cost = signal.costCents || 0;
 
   rules.push({
     id: "kill_switch", name: "Kill Switch", type: "KILL_SWITCH",
@@ -132,8 +52,8 @@ function evaluateSignal(signal, walletState, config) {
   });
   rules.push({
     id: "conviction", name: "Trader Consensus", type: "SIGNAL_FILTER",
-    passed: signal.conviction >= config.minConviction,
-    reason: `${(signal.conviction * 100).toFixed(0)}% ${signal.conviction >= config.minConviction ? '≥' : '<'} minimum ${(config.minConviction * 100)}%`,
+    passed: (signal.conviction || 0) >= config.minConviction,
+    reason: `${((signal.conviction || 0) * 100).toFixed(0)}% ${(signal.conviction || 0) >= config.minConviction ? '≥' : '<'} minimum ${(config.minConviction * 100)}%`,
   });
   const perTradeOk = cost <= config.maxPerTrade;
   rules.push({
@@ -307,10 +227,10 @@ function SignalCard({ signal, evaluation, isActive, onClick, index, isProcessing
         </Badge>
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <MiniStat label="ARS" value={signal.arsScore.toFixed(2)} good={signal.arsScore >= 0.3} />
-        <MiniStat label="Entry" value={signal.entryQuality} good={["good", "fair"].includes(signal.entryQuality)} />
-        <MiniStat label="Price" value={`${(signal.price * 100).toFixed(0)}¢`} />
-        <MiniStat label="Traders" value={signal.numTraders} />
+        <MiniStat label="ARS" value={(signal.arsScore || 0).toFixed(2)} good={(signal.arsScore || 0) >= 0.3} />
+        <MiniStat label="Entry" value={signal.entryQuality || '—'} good={["good", "fair"].includes(signal.entryQuality)} />
+        <MiniStat label="Price" value={`${((signal.price || 0) * 100).toFixed(0)}¢`} />
+        <MiniStat label="Traders" value={signal.numTraders || 0} />
       </div>
       {evaluation && (
         <div style={{
@@ -428,22 +348,121 @@ function DrawdownGauge({ value, threshold }) {
   );
 }
 
+// ─── Normalize Predictor API signals into governance format ───
+function normalizeSignals(rawSignals) {
+  if (!rawSignals || !Array.isArray(rawSignals)) return [];
+  return rawSignals.map((sig, i) => ({
+    id: sig.id || `sig_${i}`,
+    market: sig.market || sig.question || sig.title || 'Unknown Market',
+    ticker: sig.ticker || sig.kalshi_ticker || sig.market_slug || '—',
+    direction: (sig.direction || sig.side || 'YES').toUpperCase(),
+    price: sig.price || sig.best_price || sig.last_price || 0,
+    arsScore: sig.ars_score ?? sig.arsScore ?? sig.score ?? 0,
+    entryQuality: sig.entry_quality || sig.entryQuality || 'unknown',
+    conviction: sig.conviction ?? sig.consensus ?? 0,
+    numTraders: sig.num_traders ?? sig.numTraders ?? sig.trader_count ?? 0,
+    totalSize: sig.total_size ?? sig.totalSize ?? sig.volume ?? 0,
+    recommendedSize: sig.recommended_size ?? sig.recommendedSize ?? 0,
+    contracts: sig.contracts ?? sig.count ?? 0,
+    costCents: sig.cost_cents ?? sig.costCents ?? Math.round((sig.contracts || sig.count || 0) * (sig.price || 0) * 100),
+    category: sig.category || sig.market_category || 'Other',
+    traders: sig.traders || sig.top_traders || [],
+  }));
+}
+
 // ─── Main Dashboard ───
 export default function AgentWalletGovernanceDashboard() {
+  const [signals, setSignals] = useState([]);
   const [activeSignal, setActiveSignal] = useState(null);
   const [evaluations, setEvaluations] = useState({});
   const [auditLog, setAuditLog] = useState([]);
   const [walletState, setWalletState] = useState({
-    balance: 500, dailySpend: 0, weeklySpend: 0, drawdown: 0,
-    consecutiveLosses: 0, peakBalance: 500, killSwitch: false,
+    balance: 0, dailySpend: 0, weeklySpend: 0, drawdown: 0,
+    consecutiveLosses: 0, peakBalance: 0, killSwitch: false,
+  });
+  const [govConfig, setGovConfig] = useState({
+    maxPerTrade: 2000,
+    maxDaily: 5000,
+    maxWeekly: 15000,
+    minArsScore: 0.3,
+    minConviction: 0.05,
+    allowedQualities: ["good", "fair"],
+    drawdownThreshold: 0.20,
+    consecutiveLossLimit: 5,
   });
   const [isRunning, setIsRunning] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
   const [currentProcessing, setCurrentProcessing] = useState(null);
+  const [loadingSignals, setLoadingSignals] = useState(true);
+  const [loadingDash, setLoadingDash] = useState(true);
+  const [runResult, setRunResult] = useState(null);
   const auditRef = useRef(null);
 
+  // Fetch live wallet state from Cloud Run
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const data = await traderRequest('GET', '/dashboard');
+      const bal = data.balance?.usd ?? 0;
+      const gov = data.governance ?? {};
+      const cfg = gov.config ?? {};
+
+      setWalletState(prev => ({
+        ...prev,
+        balance: bal,
+        dailySpend: gov.daily_spend_cents ?? 0,
+        weeklySpend: gov.weekly_spend_cents ?? 0,
+        drawdown: gov.current_drawdown_pct ?? 0,
+        consecutiveLosses: gov.consecutive_losses ?? 0,
+        peakBalance: gov.peak_balance_usd ?? bal,
+        killSwitch: gov.kill_switch_active ?? false,
+      }));
+
+      if (cfg.max_per_trade_cents) {
+        setGovConfig(prev => ({
+          ...prev,
+          maxPerTrade: cfg.max_per_trade_cents ?? prev.maxPerTrade,
+          maxDaily: cfg.max_daily_spend_cents ?? prev.maxDaily,
+          maxWeekly: cfg.max_weekly_spend_cents ?? prev.maxWeekly,
+          minArsScore: cfg.min_ars_score ?? prev.minArsScore,
+          minConviction: cfg.min_conviction ?? prev.minConviction,
+          drawdownThreshold: cfg.drawdown_kill_switch_pct ?? prev.drawdownThreshold,
+          consecutiveLossLimit: cfg.consecutive_loss_limit ?? prev.consecutiveLossLimit,
+          allowedQualities: cfg.allowed_entry_qualities ?? prev.allowedQualities,
+        }));
+      }
+    } catch (e) {
+      console.error('Dashboard fetch failed:', e);
+    } finally {
+      setLoadingDash(false);
+    }
+  }, []);
+
+  // Fetch live signals from Predictor Agent API
+  const fetchSignals = useCallback(async () => {
+    try {
+      const data = await predictorRequest('/signals');
+      const raw = data.signals || data.results || data;
+      const normalized = normalizeSignals(Array.isArray(raw) ? raw : []);
+      if (normalized.length > 0) {
+        setSignals(normalized);
+      }
+    } catch (e) {
+      console.error('Signals fetch failed:', e);
+    } finally {
+      setLoadingSignals(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboard();
+    fetchSignals();
+    const dashInterval = setInterval(fetchDashboard, 15000);
+    const sigInterval = setInterval(fetchSignals, 60000);
+    return () => { clearInterval(dashInterval); clearInterval(sigInterval); };
+  }, [fetchDashboard, fetchSignals]);
+
   const processSignal = (signal, state) => {
-    const ev = evaluateSignal(signal, state, GOVERNANCE_CONFIG);
+    const ev = evaluateSignal(signal, state, govConfig);
     const newState = { ...state };
 
     if (ev.decision === "approved") {
@@ -469,23 +488,19 @@ export default function AgentWalletGovernanceDashboard() {
     return { evaluation: ev, newState, entry };
   };
 
+  // Run governance simulation locally on current signals
   const runAllSignals = async () => {
+    if (signals.length === 0) return;
     setIsRunning(true);
     setEvaluations({});
     setAuditLog([]);
     setProcessedCount(0);
-    setWalletState({
-      balance: 500, dailySpend: 0, weeklySpend: 0, drawdown: 0,
-      consecutiveLosses: 0, peakBalance: 500, killSwitch: false,
-    });
+    setRunResult(null);
 
-    let state = {
-      balance: 500, dailySpend: 0, weeklySpend: 0, drawdown: 0,
-      consecutiveLosses: 0, peakBalance: 500, killSwitch: false,
-    };
+    let state = { ...walletState };
 
-    for (let i = 0; i < DEMO_SIGNALS.length; i++) {
-      const signal = DEMO_SIGNALS[i];
+    for (let i = 0; i < signals.length; i++) {
+      const signal = signals[i];
       setCurrentProcessing(signal.id);
       setActiveSignal(signal.id);
       await new Promise(r => setTimeout(r, 800));
@@ -504,10 +519,23 @@ export default function AgentWalletGovernanceDashboard() {
     setIsRunning(false);
   };
 
+  // Run actual trade cycle on Cloud Run
+  const runLivePipeline = async () => {
+    setRunResult(null);
+    try {
+      const r = await traderRequest('POST', '/run');
+      setRunResult(r);
+      await fetchDashboard();
+    } catch (e) {
+      setRunResult({ error: e.message });
+    }
+  };
+
   const activeEval = activeSignal ? evaluations[activeSignal] : null;
-  const activeSignalData = DEMO_SIGNALS.find(s => s.id === activeSignal);
+  const activeSignalData = signals.find(s => s.id === activeSignal);
   const totalBlocked = Object.values(evaluations).filter(e => e.decision !== "approved").length;
   const totalApproved = Object.values(evaluations).filter(e => e.decision === "approved").length;
+  const isLoading = loadingSignals && loadingDash;
 
   return (
     <div style={{
@@ -549,7 +577,7 @@ export default function AgentWalletGovernanceDashboard() {
               </span>
             </div>
             <div style={{ fontSize: 10, color: colors.textMuted, fontFamily: "'JetBrains Mono', monospace", marginTop: 1 }}>
-              predictor-agent-alpha · kalshi-v2 · {new Date().toISOString().slice(0, 10)}
+              predictor-agent-alpha · kalshi-v2 · {new Date().toISOString().slice(0, 10)} · <span style={{ color: colors.accent }}>LIVE</span>
             </div>
           </div>
         </div>
@@ -573,19 +601,56 @@ export default function AgentWalletGovernanceDashboard() {
               {walletState.killSwitch ? "Kill Switch Active" : isRunning ? "Processing" : "Ready"}
             </span>
           </div>
-          <button onClick={runAllSignals} disabled={isRunning} style={{
+
+          <button onClick={runLivePipeline} disabled={isRunning || walletState.killSwitch} style={{
+            padding: "8px 16px", borderRadius: 6, border: `1px solid ${colors.blue}40`,
+            background: colors.blueDim,
+            color: colors.blue,
+            fontWeight: 700, fontSize: 11, cursor: isRunning ? "default" : "pointer",
+            fontFamily: "'JetBrains Mono', monospace",
+            transition: "all 0.2s",
+            opacity: isRunning || walletState.killSwitch ? 0.4 : 1,
+          }}>
+            ⚡ Run Live Trade
+          </button>
+
+          <button onClick={runAllSignals} disabled={isRunning || signals.length === 0} style={{
             padding: "8px 20px", borderRadius: 6, border: "none",
             background: isRunning ? colors.border : colors.accent,
             color: isRunning ? colors.textDim : colors.bg,
-            fontWeight: 700, fontSize: 12, cursor: isRunning ? "default" : "pointer",
+            fontWeight: 700, fontSize: 12, cursor: isRunning || signals.length === 0 ? "default" : "pointer",
             fontFamily: "'JetBrains Mono', monospace",
             letterSpacing: "0.02em",
             transition: "all 0.2s",
           }}>
-            {isRunning ? `Processing ${processedCount}/${DEMO_SIGNALS.length}...` : "▶ Run Governance Pipeline"}
+            {isRunning ? `Processing ${processedCount}/${signals.length}...` : "▶ Run Governance Pipeline"}
           </button>
         </div>
       </div>
+
+      {/* Live pipeline result banner */}
+      {runResult && (
+        <div style={{
+          padding: "10px 24px",
+          background: runResult.error ? colors.dangerDim : colors.accentDim,
+          borderBottom: `1px solid ${runResult.error ? colors.danger : colors.accent}40`,
+          fontSize: 12,
+          fontFamily: "'JetBrains Mono', monospace",
+          color: runResult.error ? colors.danger : colors.accent,
+        }}>
+          {runResult.error
+            ? `❌ Error: ${runResult.error}`
+            : `✅ Live pipeline complete — ${runResult.results?.total ?? 0} signals → ${runResult.results?.matched ?? 0} matched → ${runResult.results?.approved ?? 0} approved → ${runResult.results?.executed ?? 0} executed`
+          }
+          {(runResult.results?.trades || []).map((t, i) => (
+            <span key={i}> | 💸 {t.side?.toUpperCase()} {t.count}x {t.ticker} @ {t.price}¢</span>
+          ))}
+          <span
+            onClick={() => setRunResult(null)}
+            style={{ marginLeft: 12, cursor: "pointer", opacity: 0.6 }}
+          >✕</span>
+        </div>
+      )}
 
       {/* ── Stats Row ── */}
       <div style={{
@@ -594,28 +659,28 @@ export default function AgentWalletGovernanceDashboard() {
         borderBottom: `1px solid ${colors.border}`,
       }}>
         <StatCard label="Balance" value={`$${walletState.balance.toFixed(2)}`} sub={`peak: $${walletState.peakBalance.toFixed(2)}`} />
-        <StatCard label="Daily Spend" value={`$${(walletState.dailySpend / 100).toFixed(2)}`} sub={`of $${GOVERNANCE_CONFIG.maxDaily / 100} limit`} color={walletState.dailySpend > GOVERNANCE_CONFIG.maxDaily * 0.8 ? colors.warn : colors.accent} />
+        <StatCard label="Daily Spend" value={`$${(walletState.dailySpend / 100).toFixed(2)}`} sub={`of $${govConfig.maxDaily / 100} limit`} color={walletState.dailySpend > govConfig.maxDaily * 0.8 ? colors.warn : colors.accent} />
         <StatCard label="Approved" value={totalApproved} sub={`of ${processedCount} signals`} color={colors.accent} />
         <StatCard label="Blocked" value={totalBlocked} sub={totalBlocked > 0 ? "guardrails working" : "none yet"} color={totalBlocked > 0 ? colors.danger : colors.textDim} />
         <div style={{
           padding: "16px 20px", background: colors.surface, borderRadius: 8,
           border: `1px solid ${colors.border}`, display: "flex", alignItems: "center", gap: 16,
         }}>
-          <DrawdownGauge value={walletState.drawdown} threshold={GOVERNANCE_CONFIG.drawdownThreshold} />
+          <DrawdownGauge value={walletState.drawdown} threshold={govConfig.drawdownThreshold} />
           <div>
             <div style={{ fontSize: 11, color: colors.textDim, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>
               Daily Usage
             </div>
-            <ProgressBar value={walletState.dailySpend} max={GOVERNANCE_CONFIG.maxDaily} height={5} />
+            <ProgressBar value={walletState.dailySpend} max={govConfig.maxDaily} height={5} />
             <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
-              ${(walletState.dailySpend / 100).toFixed(2)} / ${(GOVERNANCE_CONFIG.maxDaily / 100).toFixed(0)}
+              ${(walletState.dailySpend / 100).toFixed(2)} / ${(govConfig.maxDaily / 100).toFixed(0)}
             </div>
           </div>
         </div>
       </div>
 
       {/* ── Main Content ── */}
-      <div style={{ display: "flex", height: "calc(100vh - 180px)" }}>
+      <div style={{ display: "flex", height: "calc(100vh - 220px)" }}>
         {/* Left: Signals */}
         <div style={{
           width: 320, borderRight: `1px solid ${colors.border}`,
@@ -624,20 +689,34 @@ export default function AgentWalletGovernanceDashboard() {
           <div style={{
             fontSize: 10, fontWeight: 600, textTransform: "uppercase",
             letterSpacing: "0.1em", color: colors.textMuted, padding: "4px 8px",
+            display: "flex", justifyContent: "space-between",
           }}>
-            Incoming Signals ({DEMO_SIGNALS.length})
+            <span>Incoming Signals ({signals.length})</span>
+            <span style={{ color: colors.accent, fontFamily: "'JetBrains Mono', monospace" }}>LIVE</span>
           </div>
-          {DEMO_SIGNALS.map((sig, i) => (
-            <SignalCard
-              key={sig.id}
-              signal={sig}
-              evaluation={evaluations[sig.id]}
-              isActive={activeSignal === sig.id}
-              onClick={() => setActiveSignal(sig.id)}
-              index={i}
-              isProcessing={currentProcessing === sig.id}
-            />
-          ))}
+          {isLoading ? (
+            <div style={{ padding: 20, textAlign: "center", color: colors.textDim, fontSize: 11 }}>
+              Loading signals...
+            </div>
+          ) : signals.length === 0 ? (
+            <div style={{ padding: 20, textAlign: "center", color: colors.textDim, fontSize: 11 }}>
+              No signals from Predictor Agent yet.
+              <br/>
+              <span style={{ fontSize: 10, color: colors.textMuted }}>Signals refresh every 60s</span>
+            </div>
+          ) : (
+            signals.map((sig, i) => (
+              <SignalCard
+                key={sig.id}
+                signal={sig}
+                evaluation={evaluations[sig.id]}
+                isActive={activeSignal === sig.id}
+                onClick={() => setActiveSignal(sig.id)}
+                index={i}
+                isProcessing={currentProcessing === sig.id}
+              />
+            ))
+          )}
         </div>
 
         {/* Center: Rule Evaluation */}
@@ -648,14 +727,14 @@ export default function AgentWalletGovernanceDashboard() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   <span style={{ fontSize: 18, fontWeight: 700 }}>{activeSignalData.market}</span>
                   <Badge color={activeSignalData.direction === "YES" ? "accent" : "danger"} size="md">
-                    {activeSignalData.direction} @ {(activeSignalData.price * 100).toFixed(0)}¢
+                    {activeSignalData.direction} @ {((activeSignalData.price || 0) * 100).toFixed(0)}¢
                   </Badge>
                 </div>
                 <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                   <MiniStat label="Contracts" value={activeSignalData.contracts} />
-                  <MiniStat label="Cost" value={`$${(activeSignalData.costCents / 100).toFixed(2)}`} />
-                  <MiniStat label="Traders" value={`${activeSignalData.numTraders} (${(activeSignalData.conviction * 100).toFixed(0)}%)`} />
-                  <MiniStat label="Pool" value={`$${(activeSignalData.totalSize / 1000).toFixed(0)}k`} />
+                  <MiniStat label="Cost" value={`$${((activeSignalData.costCents || 0) / 100).toFixed(2)}`} />
+                  <MiniStat label="Traders" value={`${activeSignalData.numTraders} (${((activeSignalData.conviction || 0) * 100).toFixed(0)}%)`} />
+                  <MiniStat label="Pool" value={`$${((activeSignalData.totalSize || 0) / 1000).toFixed(0)}k`} />
                   <MiniStat label="Category" value={activeSignalData.category} />
                 </div>
               </div>
@@ -701,12 +780,17 @@ export default function AgentWalletGovernanceDashboard() {
             }}>
               <div style={{ fontSize: 40, opacity: 0.3 }}>⛨</div>
               <div style={{ fontSize: 13, fontWeight: 500 }}>
-                {processedCount === 0 ? "Click \"Run Governance Pipeline\" to start" : "Select a signal to view evaluation"}
+                {processedCount === 0 ? 'Click "Run Governance Pipeline" to start' : "Select a signal to view evaluation"}
               </div>
               <div style={{ fontSize: 11, color: colors.textMuted, maxWidth: 300, textAlign: "center", lineHeight: 1.5 }}>
-                Every signal from the Predictor Agent passes through {GOVERNANCE_CONFIG.allowedQualities.length + 4} rules
+                Every signal from the Predictor Agent passes through {govConfig.allowedQualities.length + 4} rules
                 before any money moves.
               </div>
+              {signals.length > 0 && (
+                <div style={{ fontSize: 10, color: colors.accent, marginTop: 8, fontFamily: "'JetBrains Mono', monospace" }}>
+                  {signals.length} live signals ready for evaluation
+                </div>
+              )}
             </div>
           )}
         </div>
