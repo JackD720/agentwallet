@@ -3,10 +3,11 @@ import {
   Wallet, Bot, ArrowUpRight, ArrowDownRight, Clock, CheckCircle, 
   XCircle, AlertCircle, Shield, Activity, DollarSign, Users,
   ChevronRight, Settings, Search, Bell, Plus, Filter, RefreshCw,
-  Zap, TrendingUp, Eye, EyeOff, Copy, Loader2, WifiOff, Database
+  Zap, TrendingUp, Eye, EyeOff, Copy, Loader2, WifiOff, Database, Rss
 } from 'lucide-react';
 import KalshiTradingDashboard from './components/AgentWalletDashboard';
 import AgentWalletGovernanceDashboard from './components/AgentWalletGovernanceDashboard';
+import LiveFeedDashboard from './components/LiveFeedDashboard';
 
 // ============================================
 // CONFIGURATION
@@ -986,6 +987,12 @@ export default function App() {
             active={activeTab === 'governance'} 
             onClick={() => setActiveTab('governance')} 
           />
+          <NavItem 
+            icon={Rss} 
+            label="Live Feed" 
+            active={activeTab === 'livefeed'} 
+            onClick={() => setActiveTab('livefeed')} 
+          />
         </nav>
 
         <div className="sidebar-footer">
@@ -1015,6 +1022,7 @@ export default function App() {
               {activeTab === 'rules' && 'Spend Rules'}
               {activeTab === 'kalshi' && 'Kalshi Trading'}
               {activeTab === 'governance' && 'Governance Engine'}
+              {activeTab === 'livefeed' && 'Live Feed'}
             </h1>
             <p className="page-subtitle">
               {activeTab === 'overview' && 'Monitor your AI agent financial activity'}
@@ -1025,6 +1033,7 @@ export default function App() {
               {activeTab === 'rules' && 'Configure spend policies and guardrails'}
               {activeTab === 'kalshi' && 'AI agent prediction market trading with guardrails'}
               {activeTab === 'governance' && 'Signal evaluation, rules engine, and audit trail'}
+              {activeTab === 'livefeed' && 'Public activity feed and tweet generator'}
             </p>
           </div>
           <div className="header-actions">
@@ -1093,6 +1102,9 @@ export default function App() {
           )}
           {activeTab === 'governance' && (
             <AgentWalletGovernanceDashboard />
+          )}
+          {activeTab === 'livefeed' && (
+            <LiveFeedDashboard />
           )}
         </div>
       </main>
