@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import KalshiTradingDashboard from './components/AgentWalletDashboard';
 import AgentWalletGovernanceDashboard from './components/AgentWalletGovernanceDashboard';
+
 // ============================================
 // CONFIGURATION
 // ============================================
@@ -749,8 +750,7 @@ const RulesTab = ({ rules, loading }) => {
 // ============================================
 // MAIN APP
 // ============================================
-
-export default function App() { 
+export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [data, setData] = useState(demoData);
   const [loading, setLoading] = useState(false);
@@ -980,6 +980,12 @@ export default function App() {
             active={activeTab === 'kalshi'} 
             onClick={() => setActiveTab('kalshi')} 
           />
+          <NavItem 
+            icon={Eye} 
+            label="Governance" 
+            active={activeTab === 'governance'} 
+            onClick={() => setActiveTab('governance')} 
+          />
         </nav>
 
         <div className="sidebar-footer">
@@ -1017,6 +1023,7 @@ export default function App() {
               {activeTab === 'approvals' && 'Pending Approvals'}
               {activeTab === 'rules' && 'Spend Rules'}
               {activeTab === 'kalshi' && 'Kalshi Trading'}
+              {activeTab === 'governance' && 'Governance Engine'}
             </h1>
             <p className="page-subtitle">
               {activeTab === 'overview' && 'Monitor your AI agent financial activity'}
@@ -1026,6 +1033,7 @@ export default function App() {
               {activeTab === 'approvals' && `${data.stats.pendingApprovals} transactions need your review`}
               {activeTab === 'rules' && 'Configure spend policies and guardrails'}
               {activeTab === 'kalshi' && 'AI agent prediction market trading with guardrails'}
+              {activeTab === 'governance' && 'Signal evaluation, rules engine, and audit trail'}
             </p>
           </div>
           <div className="header-actions">
@@ -1091,6 +1099,9 @@ export default function App() {
           )}
           {activeTab === 'kalshi' && (
             <KalshiTradingDashboard />
+          )}
+          {activeTab === 'governance' && (
+            <AgentWalletGovernanceDashboard />
           )}
         </div>
       </main>
