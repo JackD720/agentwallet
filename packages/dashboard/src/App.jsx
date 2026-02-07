@@ -794,7 +794,6 @@ export default function App() {
       }));
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      showToast('Failed to fetch data. Using demo mode.', 'error');
       setDemoMode(true);
     } finally {
       setLoading(false);
@@ -931,6 +930,7 @@ export default function App() {
               <Wallet size={20} />
             </div>
             <span className="logo-text">AgentWallet</span>
+            <span className={`inline-block w-2 h-2 rounded-full ml-2 ${connected ? 'bg-emerald-400' : 'bg-amber-400'}`} title={connected ? 'Live' : 'Demo'} />
           </div>
         </div>
 
@@ -990,15 +990,6 @@ export default function App() {
 
         <div className="sidebar-footer">
           <NavItem icon={Settings} label="Settings" onClick={() => {}} />
-          
-          {/* Demo Mode Toggle */}
-          <button 
-            className="w-full mt-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors flex items-center justify-between text-sm"
-            onClick={toggleDemoMode}
-          >
-            <span className="text-slate-400">Mode</span>
-            <ConnectionStatus connected={connected} demoMode={demoMode} />
-          </button>
 
           <div className="user-card">
             <div className="user-avatar">{data.owner.name[0]}</div>
