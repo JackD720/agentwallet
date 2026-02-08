@@ -1,8 +1,13 @@
+/**
+ * Live Feed Dashboard — Redesigned
+ * Clean activity feed + tweet generator
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle, XCircle, AlertOctagon, BarChart3, Copy, Check,
   RefreshCw, Loader2, Twitter, ChevronDown, ChevronUp, Clock,
-  TrendingUp, Shield, Zap, ExternalLink
+  TrendingUp, Shield, Zap, ExternalLink, Radio
 } from 'lucide-react';
 
 const API_BASE = 'https://live-trader-164814074525.us-central1.run.app';
@@ -13,143 +18,94 @@ async function apiRequest(method, path) {
   return res.json();
 }
 
-// ── Feed Item Component ──────────────────────────────────────
-
-const FeedItem = ({ item }) => {
-  const typeConfig = {
-    trade_executed: {
-      icon: CheckCircle,
-      iconColor: 'text-emerald-400',
-      bgColor: 'bg-emerald-500/10',
-      borderColor: 'border-emerald-500/20',
-      label: 'TRADE EXECUTED',
-      labelColor: 'text-emerald-400 bg-emerald-500/20',
-    },
-    signal_blocked: {
-      icon: XCircle,
-      iconColor: 'text-red-400',
-      bgColor: 'bg-red-500/10',
-      borderColor: 'border-red-500/20',
-      label: 'BLOCKED',
-      labelColor: 'text-red-400 bg-red-500/20',
-    },
-    kill_switch: {
-      icon: AlertOctagon,
-      iconColor: 'text-amber-400',
-      bgColor: 'bg-amber-500/10',
-      borderColor: 'border-amber-500/20',
-      label: 'KILL SWITCH',
-      labelColor: 'text-amber-400 bg-amber-500/20',
-    },
-    run_summary: {
-      icon: BarChart3,
-      iconColor: 'text-indigo-400',
-      bgColor: 'bg-indigo-500/10',
-      borderColor: 'border-indigo-500/20',
-      label: 'CYCLE COMPLETE',
-      labelColor: 'text-indigo-400 bg-indigo-500/20',
-    },
+// ── Feed Item ───────────────────────────────────────────────
+const FeedItem = ({ item, index }) => {
+  const configs = {
+    trade_executed: { icon: CheckCircle, color: 'emerald', label: 'EXECUTED' },
+    signal_blocked: { icon: XCircle, color: 'red', label: 'BLOCKED' },
+    kill_switch: { icon: AlertOctagon, color: 'amber', label: 'KILL SWITCH' },
+    run_summary: { icon: BarChart3, color: 'sky', label: 'CYCLE' },
   };
-
-  const config = typeConfig[item.type] || typeConfig.run_summary;
+  const config = configs[item.type] || configs.run_summary;
   const Icon = config.icon;
+  const colorMap = {
+    emerald: { dot: 'bg-emerald-400', text: 'text-emerald-400', badge: 'bg-emerald-500/15 text-emerald-400', line: 'bg-emerald-500/20' },
+    red: { dot: 'bg-red-400', text: 'text-red-400', badge: 'bg-red-500/15 text-red-400', line: 'bg-red-500/20' },
+    amber: { dot: 'bg-amber-400', text: 'text-amber-400', badge: 'bg-amber-500/15 text-amber-400', line: 'bg-amber-500/20' },
+    sky: { dot: 'bg-sky-400', text: 'text-sky-400', badge: 'bg-sky-500/15 text-sky-400', line: 'bg-sky-500/20' },
+  };
+  const c = colorMap[config.color];
 
-  const timeAgo = (timestamp) => {
-    if (!timestamp) return '';
-    const diff = Date.now() - new Date(timestamp).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
+  const timeAgo = (ts) => {
+    if (!ts) return '';
+    const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+    if (mins < 1) return 'now';
+    if (mins < 60) return `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h`;
+    return `${Math.floor(hrs / 24)}d`;
   };
 
   return (
-    <div className={`rounded-xl border ${config.borderColor} ${config.bgColor} p-4 transition-all hover:border-opacity-60`}>
-      <div className="flex items-start gap-3">
-        {/* Icon */}
-        <div className={`mt-0.5 ${config.iconColor}`}>
-          <Icon size={20} />
+    <div className="flex gap-3 group">
+      {/* Timeline */}
+      <div className="flex flex-col items-center pt-1">
+        <div className={`w-2 h-2 rounded-full ${c.dot} shrink-0`} />
+        <div className={`w-px flex-1 ${c.line} mt-1`} />
+      </div>
+
+      {/* Content */}
+      <div className="pb-5 flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`text-[9px] font-bold tracking-widest px-1.5 py-0.5 rounded ${c.badge}`}>
+            {config.label}
+          </span>
+          <span className="text-[10px] text-slate-600">{timeAgo(item.timestamp)}</span>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full ${config.labelColor}`}>
-              {config.label}
-            </span>
-            <span className="text-xs text-slate-500">{timeAgo(item.timestamp)}</span>
-          </div>
+        <p className="text-sm text-slate-200 leading-snug">{item.headline}</p>
 
-          <p className="text-sm text-slate-200 font-medium leading-snug">
-            {item.headline}
+        {item.market && (
+          <p className="text-xs text-slate-500 mt-1 truncate">
+            {item.direction && (
+              <span className={item.direction === 'YES' ? 'text-emerald-400 font-medium' : 'text-red-400 font-medium'}>
+                {item.direction}
+              </span>
+            )}
+            {item.direction && ' on '}<span className="text-slate-400">"{item.market}"</span>
           </p>
+        )}
 
-          {item.market && (
-            <p className="text-sm text-slate-400 mt-1 truncate">
-              {item.direction && (
-                <span className={`font-semibold ${item.direction === 'YES' ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {item.direction}
-                </span>
-              )}
-              {item.direction && ' on '}"{item.market}"
-            </p>
-          )}
-
-          {/* Blocked rules */}
-          {item.blocked_by && item.blocked_by.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {item.blocked_by.map((rule, i) => (
-                <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
-                  {rule}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Run summary stats */}
-          {item.type === 'run_summary' && (
-            <div className="mt-2 flex gap-4 text-xs">
-              <span className="text-slate-400">
-                Signals: <span className="text-slate-200 font-medium">{item.signals_found}</span>
+        {item.blocked_by && item.blocked_by.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {item.blocked_by.map((rule, i) => (
+              <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400/80">
+                {rule}
               </span>
-              <span className="text-emerald-400">
-                ✓ {item.approved} approved
-              </span>
-              <span className="text-red-400">
-                ✗ {item.blocked} blocked
-              </span>
-              {item.executed > 0 && (
-                <span className="text-indigo-400">
-                  ⚡ {item.executed} executed
-                </span>
-              )}
-            </div>
-          )}
+            ))}
+          </div>
+        )}
 
-          {/* Kill switch reason */}
-          {item.type === 'kill_switch' && item.reason && (
-            <p className="text-sm text-amber-400/80 mt-1">
-              Reason: {item.reason}
-            </p>
-          )}
+        {item.type === 'run_summary' && (
+          <div className="mt-1.5 flex gap-3 text-[10px]">
+            <span className="text-slate-500">Signals: <span className="text-slate-300 font-medium">{item.signals_found}</span></span>
+            <span className="text-emerald-400/70">✓ {item.approved}</span>
+            <span className="text-red-400/70">✗ {item.blocked}</span>
+            {item.executed > 0 && <span className="text-sky-400/70">⚡ {item.executed}</span>}
+          </div>
+        )}
 
-          {/* Rules checked */}
-          {item.rules_checked > 0 && (
-            <p className="text-[11px] text-slate-500 mt-1.5">
-              {item.rules_checked} rules evaluated
-              {item.rules_failed > 0 && ` · ${item.rules_failed} failed`}
-            </p>
-          )}
-        </div>
+        {item.rules_checked > 0 && (
+          <p className="text-[10px] text-slate-600 mt-1">
+            {item.rules_checked} rules{item.rules_failed > 0 && ` · ${item.rules_failed} failed`}
+          </p>
+        )}
       </div>
     </div>
   );
 };
 
-// ── Tweet Card Component ─────────────────────────────────────
-
+// ── Tweet Card ──────────────────────────────────────────────
 const TweetCard = ({ tweet }) => {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -160,63 +116,45 @@ const TweetCard = ({ tweet }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const typeLabels = {
-    daily_recap: { label: 'Daily Recap', icon: BarChart3, color: 'text-indigo-400' },
-    blocked_spotlight: { label: 'Blocked Trade Spotlight', icon: Shield, color: 'text-red-400' },
-  };
-
-  const config = typeLabels[tweet.type] || typeLabels.daily_recap;
-  const TypeIcon = config.icon;
-
   return (
-    <div className="rounded-xl border border-slate-700/50 bg-slate-800/30 overflow-hidden">
-      {/* Header */}
+    <div className="rounded-lg border border-slate-700/40 bg-slate-800/20 overflow-hidden">
       <button
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-700/20 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-800/30 transition-colors text-left"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-2">
-          <TypeIcon size={16} className={config.color} />
-          <span className="text-sm font-medium text-slate-200">{config.label}</span>
-          <span className="text-xs text-slate-500">{tweet.char_count} chars</span>
+          <Twitter size={12} className="text-sky-400" />
+          <span className="text-xs text-slate-300">{tweet.type === 'blocked_spotlight' ? 'Blocked Spotlight' : 'Daily Recap'}</span>
+          <span className="text-[10px] text-slate-600">{tweet.char_count}c</span>
           {tweet.char_count > 280 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">
-              LONG — may need thread
-            </span>
+            <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-400">LONG</span>
           )}
         </div>
-        {expanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+        {expanded ? <ChevronUp size={14} className="text-slate-600" /> : <ChevronDown size={14} className="text-slate-600" />}
       </button>
 
-      {/* Tweet Content */}
       {expanded && (
-        <div className="px-4 pb-4">
-          <div className="bg-slate-900/60 rounded-lg p-4 border border-slate-700/30">
-            <pre className="text-sm text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
-              {tweet.tweet}
-            </pre>
+        <div className="px-3 pb-3">
+          <div className="bg-slate-900/50 rounded-md p-3 border border-slate-700/30">
+            <pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">{tweet.tweet}</pre>
           </div>
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-2.5">
             <button
               onClick={handleCopy}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                copied
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30'
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
+                copied ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
               }`}
             >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-              {copied ? 'Copied!' : 'Copy Tweet'}
+              {copied ? <Check size={10} /> : <Copy size={10} />}
+              {copied ? 'Copied' : 'Copy'}
             </button>
             <a
               href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet.tweet)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:bg-sky-500/30 transition-all"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium bg-sky-500/15 text-sky-400 hover:bg-sky-500/25 transition-all"
             >
-              <Twitter size={14} />
-              Open in Twitter
-              <ExternalLink size={12} />
+              <ExternalLink size={10} /> Post
             </a>
           </div>
         </div>
@@ -225,34 +163,7 @@ const TweetCard = ({ tweet }) => {
   );
 };
 
-// ── Stats Bar ────────────────────────────────────────────────
-
-const StatsBar = ({ summary }) => {
-  if (!summary) return null;
-
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-      {[
-        { label: 'Signals Processed', value: summary.total_signals_processed, icon: Zap, color: 'text-indigo-400' },
-        { label: 'Approved', value: summary.total_approved, icon: CheckCircle, color: 'text-emerald-400' },
-        { label: 'Blocked', value: summary.total_blocked, icon: XCircle, color: 'text-red-400' },
-        { label: 'Approval Rate', value: summary.approval_rate, icon: TrendingUp, color: 'text-sky-400' },
-        { label: 'Kill Switch', value: summary.kill_switch, icon: AlertOctagon, color: summary.kill_switch === 'ACTIVE' ? 'text-red-400' : 'text-emerald-400' },
-      ].map((stat, i) => (
-        <div key={i} className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
-          <div className="flex items-center gap-1.5 mb-1">
-            <stat.icon size={14} className={stat.color} />
-            <span className="text-[11px] text-slate-500 uppercase tracking-wider">{stat.label}</span>
-          </div>
-          <p className={`text-lg font-bold ${stat.color}`}>{stat.value ?? '—'}</p>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ── Main Component ───────────────────────────────────────────
-
+// ── Main Component ──────────────────────────────────────────
 export default function LiveFeedDashboard() {
   const [feed, setFeed] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -269,11 +180,8 @@ export default function LiveFeedDashboard() {
       setFeed(data.feed || []);
       setSummary(data.summary || null);
       setError(null);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
   }, []);
 
   const fetchTweets = useCallback(async () => {
@@ -282,152 +190,155 @@ export default function LiveFeedDashboard() {
       const data = await apiRequest('GET', '/public/tweet');
       setTweets(data.tweets || []);
       setTweetStats(data.stats || null);
-    } catch (e) {
-      console.error('Tweet fetch failed:', e);
-    } finally {
-      setTweetLoading(false);
-    }
+    } catch (e) {}
+    finally { setTweetLoading(false); }
   }, []);
 
-  // Initial fetch
-  useEffect(() => {
-    fetchFeed();
-    fetchTweets();
-  }, [fetchFeed, fetchTweets]);
+  useEffect(() => { fetchFeed(); fetchTweets(); }, [fetchFeed, fetchTweets]);
 
-  // Auto-refresh every 30s
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(fetchFeed, 30000);
     return () => clearInterval(interval);
   }, [autoRefresh, fetchFeed]);
 
+  const stats = summary ? [
+    { label: 'Processed', value: summary.total_signals_processed ?? 0, color: 'text-slate-200' },
+    { label: 'Approved', value: summary.total_approved ?? 0, color: 'text-emerald-400' },
+    { label: 'Blocked', value: summary.total_blocked ?? 0, color: 'text-red-400' },
+    { label: 'Rate', value: summary.approval_rate ?? '0%', color: 'text-sky-400' },
+    { label: 'Kill Switch', value: summary.kill_switch ?? 'OFF', color: summary?.kill_switch === 'ACTIVE' ? 'text-red-400' : 'text-emerald-400' },
+  ] : [];
+
   return (
-    <div>
-      {/* Header Controls */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+    <div className="space-y-5">
+      {/* Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => { fetchFeed(); fetchTweets(); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700/50 hover:border-slate-600 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700/50 hover:border-slate-600 transition-colors"
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-colors ${
               autoRefresh
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                 : 'bg-slate-800 text-slate-500 border border-slate-700/50'
             }`}
           >
-            <Clock size={14} />
-            Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
+            <Radio size={11} />
+            {autoRefresh ? 'Live' : 'Paused'}
           </button>
         </div>
+        {stats.length > 0 && (
+          <div className="hidden sm:flex items-center gap-4">
+            {stats.map((s, i) => (
+              <div key={i} className="text-right">
+                <p className="text-[9px] uppercase tracking-widest text-slate-600">{s.label}</p>
+                <p className={`text-sm font-mono font-semibold ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Stats */}
-      <StatsBar summary={summary} />
-
-      {/* Error */}
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 mb-6 text-sm text-red-400">
-          Failed to load feed: {error}. Make sure the live trader is running and the /public/feed endpoint is deployed.
+      {/* Mobile Stats */}
+      {stats.length > 0 && (
+        <div className="sm:hidden grid grid-cols-5 gap-2">
+          {stats.map((s, i) => (
+            <div key={i} className="rounded-md bg-slate-800/30 border border-slate-700/30 px-2 py-2 text-center">
+              <p className="text-[8px] uppercase tracking-wider text-slate-600 mb-0.5">{s.label}</p>
+              <p className={`text-sm font-mono font-semibold ${s.color}`}>{s.value}</p>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Two Column Layout */}
+      {error && (
+        <div className="rounded-md bg-red-500/8 border border-red-500/20 px-3 py-2.5 text-xs text-red-400">
+          Feed unavailable: {error}
+        </div>
+      )}
+
+      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Feed Column (2/3) */}
+        {/* Feed (2/3) */}
         <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
-              Activity Feed
-            </h3>
-            <span className="text-xs text-slate-500">{feed.length} events</span>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Activity Feed</p>
+            <span className="text-[10px] text-slate-600">{feed.length} events</span>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 size={32} className="animate-spin text-indigo-400" />
-            </div>
+            <div className="flex justify-center py-20"><Loader2 size={20} className="animate-spin text-slate-600" /></div>
           ) : feed.length === 0 ? (
-            <div className="rounded-xl border border-slate-700/50 bg-slate-800/20 p-12 text-center">
-              <Zap size={40} className="text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400 text-sm">No activity yet</p>
-              <p className="text-slate-500 text-xs mt-1">Run a trade cycle to see events here</p>
+            <div className="rounded-lg border border-dashed border-slate-700/50 py-16 text-center">
+              <div className="w-10 h-10 rounded-full bg-slate-800/50 border border-slate-700/40 flex items-center justify-center mx-auto mb-3">
+                <Zap size={16} className="text-slate-600" />
+              </div>
+              <p className="text-xs text-slate-500">No activity yet</p>
+              <p className="text-[10px] text-slate-600 mt-1">Run a trade cycle to see events here</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="pl-1">
               {feed.map((item, i) => (
-                <FeedItem key={`${item.type}-${item.timestamp}-${i}`} item={item} />
+                <FeedItem key={`${item.type}-${item.timestamp}-${i}`} item={item} index={i} />
               ))}
             </div>
           )}
         </div>
 
-        {/* Tweets Column (1/3) */}
+        {/* Tweets (1/3) */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
-              Tweet Generator
-            </h3>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Tweet Generator</p>
             <button
               onClick={fetchTweets}
-              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
             >
-              {tweetLoading ? <Loader2 size={14} className="animate-spin" /> : 'Regenerate'}
+              {tweetLoading ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+              Regenerate
             </button>
           </div>
 
-          {/* Tweet Stats */}
           {tweetStats && (
-            <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3 mb-3">
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-slate-500">Recent trades</span>
-                  <p className="text-emerald-400 font-bold">{tweetStats.recent_trades}</p>
+            <div className="grid grid-cols-2 gap-px rounded-lg overflow-hidden bg-slate-700/20 border border-slate-700/40 mb-3">
+              {[
+                { label: 'Trades', value: tweetStats.recent_trades, color: 'text-emerald-400' },
+                { label: 'Blocks', value: tweetStats.recent_blocks, color: 'text-red-400' },
+                { label: 'Approved', value: tweetStats.lifetime_approved, color: 'text-slate-300' },
+                { label: 'Blocked', value: tweetStats.lifetime_blocked, color: 'text-slate-300' },
+              ].map((s, i) => (
+                <div key={i} className="bg-slate-900/40 px-3 py-2">
+                  <p className="text-[9px] uppercase tracking-wider text-slate-600">{s.label}</p>
+                  <p className={`text-sm font-mono font-semibold ${s.color}`}>{s.value}</p>
                 </div>
-                <div>
-                  <span className="text-slate-500">Recent blocks</span>
-                  <p className="text-red-400 font-bold">{tweetStats.recent_blocks}</p>
-                </div>
-                <div>
-                  <span className="text-slate-500">Lifetime approved</span>
-                  <p className="text-slate-200 font-bold">{tweetStats.lifetime_approved}</p>
-                </div>
-                <div>
-                  <span className="text-slate-500">Lifetime blocked</span>
-                  <p className="text-slate-200 font-bold">{tweetStats.lifetime_blocked}</p>
-                </div>
-              </div>
+              ))}
             </div>
           )}
 
-          {/* Tweet Cards */}
           {tweets.length === 0 ? (
-            <div className="rounded-xl border border-slate-700/50 bg-slate-800/20 p-8 text-center">
-              <Twitter size={32} className="text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400 text-sm">No tweets to generate</p>
-              <p className="text-slate-500 text-xs mt-1">Run some trade cycles first</p>
+            <div className="rounded-lg border border-dashed border-slate-700/50 py-10 text-center">
+              <Twitter size={16} className="text-slate-600 mx-auto mb-2" />
+              <p className="text-xs text-slate-500">No tweets to generate</p>
+              <p className="text-[10px] text-slate-600 mt-0.5">Run trade cycles first</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {tweets.map((tweet, i) => (
                 <TweetCard key={i} tweet={tweet} />
               ))}
             </div>
           )}
 
-          {/* Manual Tweet Tip */}
-          <div className="mt-4 rounded-lg border border-slate-700/30 bg-slate-800/20 p-3">
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              <strong className="text-slate-400">Tip:</strong> Take a screenshot of the activity feed 
-              or the Kalshi Trading page, then pair it with a generated tweet for maximum engagement.
-              Blocked trade callouts get the most interaction.
+          <div className="mt-3 rounded-md bg-slate-800/20 border border-slate-700/30 px-3 py-2.5">
+            <p className="text-[10px] text-slate-600 leading-relaxed">
+              <span className="text-slate-500 font-medium">Tip:</span> Screenshot the activity feed + pair with a generated tweet for maximum engagement.
             </p>
           </div>
         </div>

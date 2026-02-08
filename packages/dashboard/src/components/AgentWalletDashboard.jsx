@@ -1,6 +1,6 @@
 /**
- * Kalshi Trading Dashboard Component
- * Wired to live-trader Cloud Run API
+ * Kalshi Trading Dashboard — Redesigned
+ * Clean, tight layout with refined visual hierarchy
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -11,88 +11,80 @@ import {
 
 const API_BASE = 'https://live-trader-164814074525.us-central1.run.app';
 
-// ─────────────────────────────────────────────────────────────────
-// API Helper
-// ─────────────────────────────────────────────────────────────────
-
 async function apiRequest(method, path, body = null) {
   const options = {
     method,
     headers: { 'Content-Type': 'application/json' },
   };
   if (body) options.body = JSON.stringify(body);
-  
   const res = await fetch(`${API_BASE}${path}`, options);
   const data = await res.json();
-  
   if (!res.ok) throw new Error(data.detail || 'Request failed');
   return data;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Status Card Component
-// ─────────────────────────────────────────────────────────────────
-
-const StatusCard = ({ icon: Icon, label, value, sub, status }) => (
-  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-    <div className="flex items-center gap-3 mb-3">
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-        status === 'success' ? 'bg-emerald-500/20' : 
-        status === 'warning' ? 'bg-amber-500/20' : 
-        status === 'danger' ? 'bg-red-500/20' : 'bg-indigo-500/20'
-      }`}>
-        <Icon size={20} className={
-          status === 'success' ? 'text-emerald-400' : 
-          status === 'warning' ? 'text-amber-400' : 
-          status === 'danger' ? 'text-red-400' : 'text-indigo-400'
-        } />
-      </div>
-      <span className="text-slate-400 text-sm">{label}</span>
+// ── Metric Pill ─────────────────────────────────────────────
+const MetricPill = ({ label, value, sub, accent = 'emerald' }) => {
+  const colors = {
+    emerald: 'from-emerald-500/10 to-emerald-500/5 border-emerald-500/20',
+    amber: 'from-amber-500/10 to-amber-500/5 border-amber-500/20',
+    red: 'from-red-500/10 to-red-500/5 border-red-500/20',
+    sky: 'from-sky-500/10 to-sky-500/5 border-sky-500/20',
+  };
+  const textColors = {
+    emerald: 'text-emerald-400',
+    amber: 'text-amber-400',
+    red: 'text-red-400',
+    sky: 'text-sky-400',
+  };
+  return (
+    <div className={`bg-gradient-to-b ${colors[accent]} border rounded-lg px-4 py-3`}>
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-0.5">{label}</p>
+      <p className={`text-xl font-semibold font-mono ${textColors[accent]}`}>{value}</p>
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
     </div>
-    <p className="text-2xl font-bold text-white font-mono">{value}</p>
-    {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
-  </div>
-);
+  );
+};
 
-// ─────────────────────────────────────────────────────────────────
-// Positions Table
-// ─────────────────────────────────────────────────────────────────
-
+// ── Positions ───────────────────────────────────────────────
 function PositionsTable({ positions }) {
   if (!positions || positions.length === 0) {
     return (
-      <div className="text-center py-8">
-        <BarChart3 size={32} className="text-slate-600 mx-auto mb-3" />
-        <p className="text-slate-500 text-sm">No active positions</p>
+      <div className="flex flex-col items-center justify-center py-6 opacity-50">
+        <BarChart3 size={20} className="text-slate-600 mb-1.5" />
+        <p className="text-slate-600 text-xs">No open positions</p>
       </div>
     );
   }
-
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-xs">
         <thead>
-          <tr className="text-slate-500 text-xs uppercase">
-            <th className="text-left py-3 px-2">Market</th>
-            <th className="text-left py-3 px-2">Side</th>
-            <th className="text-left py-3 px-2">Qty</th>
-            <th className="text-left py-3 px-2">Exposure</th>
+          <tr className="text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-800">
+            <th className="text-left py-2.5 px-3 font-medium">Market</th>
+            <th className="text-left py-2.5 px-3 font-medium">Side</th>
+            <th className="text-right py-2.5 px-3 font-medium">Qty</th>
+            <th className="text-right py-2.5 px-3 font-medium">Exposure</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800">
+        <tbody>
           {positions.map((p, i) => (
-            <tr key={i} className="hover:bg-slate-800/30">
-              <td className="py-2.5 px-2 text-slate-300 font-mono text-xs max-w-[250px] truncate">
+            <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors">
+              <td className="py-2.5 px-3 text-slate-300 font-mono truncate max-w-[280px]">
                 {p.ticker || p.market_ticker || '—'}
               </td>
-              <td className="py-2.5 px-2">
-                <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <td className="py-2.5 px-3">
+                <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                  (p.side || 'yes').toLowerCase() === 'yes'
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : 'bg-red-500/15 text-red-400'
+                }`}>
                   {(p.side || 'yes').toUpperCase()}
                 </span>
               </td>
-              <td className="py-2.5 px-2 text-white font-mono">{p.total_traded ?? p.quantity ?? '—'}</td>
-              <td className="py-2.5 px-2 text-emerald-400 font-mono">
-                {p.market_exposure !== undefined ? `$${(p.market_exposure / 100).toFixed(2)}` : '—'}
+              <td className="py-2.5 px-3 text-right text-slate-200 font-mono">{p.total_traded ?? p.quantity ?? 0}</td>
+              <td className="py-2.5 px-3 text-right text-emerald-400 font-mono">
+                ${((p.market_exposure || 0) / 100).toFixed(2)}
               </td>
             </tr>
           ))}
@@ -102,10 +94,7 @@ function PositionsTable({ positions }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Recent Trades Table
-// ─────────────────────────────────────────────────────────────────
-
+// ── Recent Trades ───────────────────────────────────────────
 function RecentTrades() {
   const [fills, setFills] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -117,54 +106,44 @@ function RecentTrades() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="animate-spin text-indigo-400" size={24} />
-      </div>
-    );
-  }
+  if (loading) return <div className="flex justify-center py-6"><Loader2 className="animate-spin text-slate-600" size={18} /></div>;
 
   if (fills.length === 0) {
     return (
-      <div className="text-center py-8">
-        <DollarSign size={32} className="text-slate-600 mx-auto mb-3" />
-        <p className="text-slate-500 text-sm">No trades yet</p>
+      <div className="flex flex-col items-center justify-center py-6 opacity-50">
+        <DollarSign size={20} className="text-slate-600 mb-1.5" />
+        <p className="text-slate-600 text-xs">No trades yet</p>
       </div>
     );
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-xs">
         <thead>
-          <tr className="text-slate-500 text-xs uppercase">
-            <th className="text-left py-3 px-2">Time</th>
-            <th className="text-left py-3 px-2">Action</th>
-            <th className="text-left py-3 px-2">Ticker</th>
-            <th className="text-left py-3 px-2">Qty × Price</th>
+          <tr className="text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-800">
+            <th className="text-left py-2.5 px-3 font-medium">Time</th>
+            <th className="text-left py-2.5 px-3 font-medium">Action</th>
+            <th className="text-left py-2.5 px-3 font-medium">Ticker</th>
+            <th className="text-right py-2.5 px-3 font-medium">Qty × Price</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800">
-          {fills.slice(0, 15).map((f, i) => (
-            <tr key={i} className="hover:bg-slate-800/30">
-              <td className="py-2 px-2 text-slate-500 whitespace-nowrap text-xs font-mono">
-                {f.created_time ? new Date(f.created_time).toLocaleString() : '—'}
+        <tbody>
+          {fills.slice(0, 10).map((f, i) => (
+            <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors">
+              <td className="py-2 px-3 text-slate-500 whitespace-nowrap font-mono">
+                {f.created_time ? new Date(f.created_time).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
               </td>
-              <td className="py-2 px-2">
-                <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded border ${
-                  f.action === 'buy' 
-                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
-                    : 'bg-red-500/20 text-red-400 border-red-500/30'
+              <td className="py-2 px-3">
+                <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                  f.action === 'buy' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
                 }`}>
                   {(f.action || 'buy').toUpperCase()}
                 </span>
               </td>
-              <td className="py-2 px-2 text-slate-300 font-mono text-xs">
-                {f.ticker || '—'}
-              </td>
-              <td className="py-2 px-2 text-white font-mono text-xs">
-                {f.count ?? f.yes_count ?? f.no_count ?? '—'}x @ {f.yes_price ?? f.no_price ?? '—'}¢
+              <td className="py-2 px-3 text-slate-300 font-mono truncate max-w-[220px]">{f.ticker || '—'}</td>
+              <td className="py-2 px-3 text-right text-slate-200 font-mono">
+                {f.count ?? f.yes_count ?? f.no_count ?? '—'}× {f.yes_price ?? f.no_price ?? '—'}¢
               </td>
             </tr>
           ))}
@@ -174,10 +153,7 @@ function RecentTrades() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Audit Log Component
-// ─────────────────────────────────────────────────────────────────
-
+// ── Audit Log ───────────────────────────────────────────────
 function AuditLog({ refreshKey }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -186,11 +162,8 @@ function AuditLog({ refreshKey }) {
     try {
       const data = await apiRequest('GET', '/audit');
       setEvents(data.entries || []);
-    } catch (e) {
-      console.error('Failed to fetch audit log:', e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) {}
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -199,150 +172,107 @@ function AuditLog({ refreshKey }) {
     return () => clearInterval(interval);
   }, [fetchEvents, refreshKey]);
 
-  const getEventStyle = (eventType) => {
-    const type = (eventType || '').toLowerCase();
-    if (type.includes('complete') || type.includes('executed') || type.includes('success')) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-    if (type.includes('denied') || type.includes('blocked') || type.includes('error') || type.includes('kill')) return 'bg-red-500/20 text-red-400 border-red-500/30';
-    if (type.includes('approved') || type.includes('allowed')) return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-    if (type.includes('warn') || type.includes('rule')) return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-    return 'bg-slate-700/50 text-slate-400 border-slate-600/30';
+  const getEventColor = (eventType) => {
+    const t = (eventType || '').toLowerCase();
+    if (t.includes('complete') || t.includes('executed') || t.includes('success')) return 'bg-emerald-500/15 text-emerald-400';
+    if (t.includes('denied') || t.includes('blocked') || t.includes('error') || t.includes('kill')) return 'bg-red-500/15 text-red-400';
+    if (t.includes('approved') || t.includes('allowed')) return 'bg-sky-500/15 text-sky-400';
+    if (t.includes('warn') || t.includes('rule')) return 'bg-amber-500/15 text-amber-400';
+    return 'bg-slate-700/30 text-slate-400';
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="animate-spin text-indigo-400" size={24} />
-      </div>
-    );
-  }
+  if (loading) return <div className="flex justify-center py-6"><Loader2 className="animate-spin text-slate-600" size={18} /></div>;
 
   if (events.length === 0) {
     return (
-      <div className="text-center py-8">
-        <Activity size={32} className="text-slate-600 mx-auto mb-3" />
-        <p className="text-slate-500 text-sm">No audit entries yet</p>
-        <p className="text-slate-600 text-xs mt-1">Entries appear when trade cycles run</p>
+      <div className="flex flex-col items-center justify-center py-6 opacity-50">
+        <Activity size={20} className="text-slate-600 mb-1.5" />
+        <p className="text-slate-600 text-xs">No audit entries yet</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-slate-500 text-xs uppercase">
-            <th className="text-left py-3 px-2">Time</th>
-            <th className="text-left py-3 px-2">Event</th>
-            <th className="text-left py-3 px-2">Details</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-800">
-          {events.slice(0, 20).map((event, i) => (
-            <tr key={event.event_id || i} className="hover:bg-slate-800/30">
-              <td className="py-2 px-2 text-slate-500 whitespace-nowrap text-xs font-mono">
-                {event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '—'}
-              </td>
-              <td className="py-2 px-2">
-                <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded border ${getEventStyle(event.event)}`}>
-                  {(event.event || event.event_type || '').replace(/_/g, ' ')}
-                </span>
-              </td>
-              <td className="py-2 px-2 text-slate-400 text-xs max-w-[300px] truncate">
-                {event.details 
-                  ? (typeof event.details === 'string' ? event.details : JSON.stringify(event.details).slice(0, 100))
-                  : event.action_type || '—'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+      {events.slice(0, 20).map((event, i) => (
+        <div key={event.event_id || i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-800/30 transition-colors group">
+          <span className="text-[10px] text-slate-600 font-mono whitespace-nowrap w-16 shrink-0">
+            {event.timestamp ? new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+          </span>
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shrink-0 ${getEventColor(event.event)}`}>
+            {(event.event || event.event_type || '').replace(/_/g, ' ')}
+          </span>
+          <span className="text-[11px] text-slate-500 truncate">
+            {event.details
+              ? (typeof event.details === 'string' ? event.details : JSON.stringify(event.details).slice(0, 80))
+              : event.action_type || ''}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Kill Switch Component
-// ─────────────────────────────────────────────────────────────────
-
+// ── Kill Switch ─────────────────────────────────────────────
 function KillSwitch({ isActive, onToggle }) {
   const [loading, setLoading] = useState(false);
   const [reason, setReason] = useState('');
 
   const handleToggle = async () => {
     const activate = !isActive;
-    if (activate && !window.confirm('⚠️ ACTIVATE KILL SWITCH?\n\nThis will block all new trading activity.')) {
-      return;
-    }
-
+    if (activate && !window.confirm('⚠️ ACTIVATE KILL SWITCH?\n\nThis will block all new trading activity.')) return;
     setLoading(true);
     try {
       await apiRequest('POST', `/kill-switch?activate=${activate}&reason=${encodeURIComponent(reason || 'dashboard')}`);
       if (onToggle) onToggle();
-    } catch (e) {
-      alert(`Failed: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { alert(`Failed: ${e.message}`); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div className={`rounded-xl p-5 border-2 transition-all ${
-      isActive 
-        ? 'bg-red-500/10 border-red-500/50' 
-        : 'bg-slate-800/50 border-slate-700/50 hover:border-red-500/30'
+    <div className={`rounded-lg border transition-all ${
+      isActive ? 'bg-red-500/8 border-red-500/30' : 'bg-slate-800/30 border-slate-700/40 hover:border-slate-600/60'
     }`}>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
           <div>
-            <h4 className="font-semibold text-white">Global Kill Switch</h4>
-            <p className="text-xs text-slate-500">Emergency stop for all agents</p>
+            <p className="text-sm font-medium text-slate-200">Kill Switch</p>
+            <p className="text-[10px] text-slate-500">Emergency stop for all agents</p>
           </div>
         </div>
-        <Shield size={24} className={isActive ? 'text-red-400' : 'text-slate-600'} />
+        <Shield size={18} className={isActive ? 'text-red-400' : 'text-slate-600'} />
       </div>
 
-      {!isActive && (
-        <input
-          type="text"
-          placeholder="Reason (optional)"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm mb-3 focus:outline-none focus:border-red-500/50"
-        />
-      )}
-
-      <button
-        onClick={handleToggle}
-        disabled={loading}
-        className={`w-full py-3 px-4 rounded-lg font-bold transition flex items-center justify-center gap-2 ${
-          isActive
-            ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400'
-            : 'bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400'
-        }`}
-      >
-        {loading ? (
-          <Loader2 size={18} className="animate-spin" />
-        ) : isActive ? (
-          <>
-            <CheckCircle size={18} />
-            RESET KILL SWITCH
-          </>
-        ) : (
-          <>
-            <AlertCircle size={18} />
-            ACTIVATE KILL SWITCH
-          </>
+      <div className="px-4 pb-4">
+        {!isActive && (
+          <input
+            type="text"
+            placeholder="Reason (optional)"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-900/40 border border-slate-700/60 rounded-md text-sm text-white placeholder-slate-600 mb-3 focus:outline-none focus:border-red-500/40 transition-colors"
+          />
         )}
-      </button>
+        <button
+          onClick={handleToggle}
+          disabled={loading}
+          className={`w-full py-2 px-4 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+            isActive
+              ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400'
+              : 'bg-red-500/15 hover:bg-red-500/25 text-red-400'
+          }`}
+        >
+          {loading ? <Loader2 size={14} className="animate-spin" /> :
+            isActive ? <><CheckCircle size={14} /> Reset Kill Switch</> : <><AlertCircle size={14} /> Activate Kill Switch</>
+          }
+        </button>
+      </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Run Trade Cycle Button
-// ─────────────────────────────────────────────────────────────────
-
+// ── Run Trade Cycle ─────────────────────────────────────────
 function RunTradeCycle({ onComplete, killActive }) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
@@ -354,67 +284,43 @@ function RunTradeCycle({ onComplete, killActive }) {
       const r = await apiRequest('POST', '/run');
       setResult(r);
       if (onComplete) onComplete();
-    } catch (e) {
-      setResult({ error: e.message });
-    } finally {
-      setRunning(false);
-    }
+    } catch (e) { setResult({ error: e.message }); }
+    finally { setRunning(false); }
   };
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-            <Play size={20} className="text-emerald-400" />
-          </div>
-          <div>
-            <h4 className="font-semibold text-white">Trade Cycle</h4>
-            <p className="text-xs text-slate-500">Run the full signal → match → govern → execute pipeline</p>
-          </div>
+    <div className="rounded-lg bg-slate-800/30 border border-slate-700/40 p-4">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 rounded-md bg-emerald-500/15 flex items-center justify-center">
+          <Play size={14} className="text-emerald-400 ml-0.5" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-slate-200">Trade Cycle</p>
+          <p className="text-[10px] text-slate-500">Signal → Match → Govern → Execute</p>
         </div>
       </div>
-
       <button
         onClick={handleRun}
         disabled={running || killActive}
-        className={`w-full py-3 px-4 rounded-lg font-bold transition flex items-center justify-center gap-2 ${
+        className={`w-full py-2.5 px-4 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
           running || killActive
-            ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-            : 'bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400'
+            ? 'bg-slate-700/40 text-slate-500 cursor-not-allowed'
+            : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400'
         }`}
       >
-        {running ? (
-          <>
-            <Loader2 size={18} className="animate-spin" />
-            Running Pipeline...
-          </>
-        ) : killActive ? (
-          <>
-            <XCircle size={18} />
-            Kill Switch Active
-          </>
-        ) : (
-          <>
-            <Play size={18} />
-            RUN TRADE CYCLE
-          </>
-        )}
+        {running ? <><Loader2 size={14} className="animate-spin" /> Running…</> :
+          killActive ? <><XCircle size={14} /> Kill Switch Active</> : <><Play size={14} /> Run Trade Cycle</>
+        }
       </button>
-
       {result && (
-        <div className={`mt-3 p-3 rounded-lg text-sm font-mono ${
-          result.error 
-            ? 'bg-red-500/10 border border-red-500/30 text-red-400'
-            : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+        <div className={`mt-3 px-3 py-2.5 rounded-md text-xs font-mono ${
+          result.error ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'
         }`}>
-          {result.error ? (
-            `Error: ${result.error}`
-          ) : (
+          {result.error ? `Error: ${result.error}` : (
             <>
-              <strong>✅ Complete</strong> — {result.results?.total ?? 0} signals → {result.results?.matched ?? 0} matched → {result.results?.approved ?? 0} approved → {result.results?.executed ?? 0} executed
+              ✓ {result.results?.total ?? 0} signals → {result.results?.matched ?? 0} matched → {result.results?.approved ?? 0} approved → {result.results?.executed ?? 0} executed
               {(result.results?.trades || []).map((t, i) => (
-                <div key={i} className="mt-1">💸 {t.side?.toUpperCase()} {t.count}x {t.ticker} @ {t.price}¢</div>
+                <div key={i} className="mt-1 text-sky-400">💸 {t.side?.toUpperCase()} {t.count}× {t.ticker} @ {t.price}¢</div>
               ))}
             </>
           )}
@@ -424,10 +330,7 @@ function RunTradeCycle({ onComplete, killActive }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Main Dashboard Component
-// ─────────────────────────────────────────────────────────────────
-
+// ── Main Dashboard ──────────────────────────────────────────
 export default function KalshiTradingDashboard() {
   const [dashData, setDashData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -438,11 +341,8 @@ export default function KalshiTradingDashboard() {
       const data = await apiRequest('GET', '/dashboard');
       setDashData(data);
     } catch (e) {
-      console.error('Failed to fetch dashboard:', e);
       setDashData(null);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -458,27 +358,22 @@ export default function KalshiTradingDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-indigo-400" size={32} />
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="animate-spin text-slate-600" size={24} />
       </div>
     );
   }
 
   if (!dashData) {
     return (
-      <div className="text-center py-20">
-        <AlertCircle size={48} className="text-amber-400 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-white mb-2">Live Trader API Not Connected</h3>
-        <p className="text-slate-400 mb-4">Could not reach the Cloud Run trading service</p>
-        <code className="block bg-slate-800 px-4 py-3 rounded-lg text-sm text-slate-300 max-w-lg mx-auto text-left font-mono">
-          {API_BASE}
-        </code>
-        <button
-          onClick={handleRefresh}
-          className="mt-4 px-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition flex items-center gap-2 mx-auto"
-        >
-          <RefreshCw size={16} />
-          Retry Connection
+      <div className="text-center py-24">
+        <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
+          <AlertCircle size={20} className="text-amber-400" />
+        </div>
+        <p className="text-sm text-slate-300 mb-1">API Not Connected</p>
+        <p className="text-xs text-slate-500 mb-4">Could not reach the trading service</p>
+        <button onClick={handleRefresh} className="px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-400 hover:border-slate-600 transition-colors inline-flex items-center gap-1.5">
+          <RefreshCw size={12} /> Retry
         </button>
       </div>
     );
@@ -493,107 +388,85 @@ export default function KalshiTradingDashboard() {
   const drawdownPct = gov.current_drawdown_pct ?? 0;
 
   return (
-    <div className="space-y-6">
-      {/* Mode Indicator */}
+    <div className="space-y-5">
+      {/* Status Bar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-            dashData.dry_run 
-              ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-              : 'bg-red-500/20 text-red-400 border-red-500/30'
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+            dashData.dry_run
+              ? 'bg-amber-500/15 text-amber-400'
+              : 'bg-red-500/15 text-red-400'
           }`}>
-            <span className={`w-2 h-2 rounded-full ${dashData.dry_run ? 'bg-amber-400' : 'bg-red-400 animate-pulse'}`} />
-            {dashData.dry_run ? '🧪 DRY RUN' : '🔴 LIVE TRADING'}
+            <span className={`w-1.5 h-1.5 rounded-full ${dashData.dry_run ? 'bg-amber-400' : 'bg-red-400 animate-pulse'}`} />
+            {dashData.dry_run ? 'Dry Run' : 'Live Trading'}
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-emerald-500/10 text-emerald-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            Connected
           </span>
         </div>
-        <button
-          onClick={handleRefresh}
-          className="p-2 hover:bg-slate-700/50 rounded-lg transition"
-          title="Refresh"
-        >
-          <RefreshCw size={16} className="text-slate-400" />
+        <button onClick={handleRefresh} className="p-1.5 hover:bg-slate-800 rounded-md transition-colors" title="Refresh">
+          <RefreshCw size={14} className="text-slate-500" />
         </button>
       </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatusCard
-          icon={Activity}
-          label="Connection"
-          value="● Connected"
-          status="success"
-        />
-        <StatusCard
-          icon={TrendingUp}
-          label="Kalshi Balance"
-          value={`$${bal.toFixed(2)}`}
-          status="success"
-        />
-        <StatusCard
-          icon={Zap}
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricPill label="Balance" value={`$${bal.toFixed(2)}`} accent="emerald" />
+        <MetricPill
           label="Daily Spend"
           value={`$${(dailySpendCents / 100).toFixed(2)}`}
           sub={`of $${(dailyLimitCents / 100).toFixed(2)} limit`}
-          status={dailySpendCents > dailyLimitCents * 0.8 ? 'warning' : undefined}
+          accent={dailySpendCents > dailyLimitCents * 0.8 ? 'amber' : 'sky'}
         />
-        <StatusCard
-          icon={Shield}
+        <MetricPill
           label="Drawdown"
           value={`${(drawdownPct * 100).toFixed(1)}%`}
           sub={`${((gov.config?.drawdown_kill_switch_pct ?? 0.2) * 100).toFixed(0)}% kill threshold`}
-          status={drawdownPct > 0.15 ? 'danger' : undefined}
+          accent={drawdownPct > 0.15 ? 'red' : 'sky'}
+        />
+        <MetricPill
+          label="Positions"
+          value={positions.length}
+          accent="sky"
         />
       </div>
 
       {/* Positions */}
-      <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-white flex items-center gap-2">
-            <BarChart3 size={18} className="text-indigo-400" />
-            Active Positions ({positions.length})
-          </h3>
+      <div className="rounded-lg bg-slate-800/20 border border-slate-700/40">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/40">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Active Positions</p>
+          <span className="text-[10px] text-slate-600">{positions.length} open</span>
         </div>
         <PositionsTable positions={positions} />
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column */}
-        <div className="space-y-6">
-          {/* Run Trade Cycle */}
-          <RunTradeCycle onComplete={handleRefresh} killActive={killActive} />
-
-          {/* Kill Switch */}
-          <KillSwitch isActive={killActive} onToggle={handleRefresh} />
-        </div>
-
-        {/* Right Column - Audit Log */}
-        <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-white flex items-center gap-2">
-              <Activity size={18} className="text-indigo-400" />
-              Audit Log
-            </h3>
-            <button
-              onClick={handleRefresh}
-              className="p-2 hover:bg-slate-700/50 rounded-lg transition"
-            >
-              <RefreshCw size={16} className="text-slate-400" />
-            </button>
-          </div>
-          <AuditLog refreshKey={refreshKey} />
-        </div>
+      {/* Controls Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RunTradeCycle onComplete={handleRefresh} killActive={killActive} />
+        <KillSwitch isActive={killActive} onToggle={handleRefresh} />
       </div>
 
-      {/* Recent Trades */}
-      <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-white flex items-center gap-2">
-            <DollarSign size={18} className="text-emerald-400" />
-            Recent Trades
-          </h3>
+      {/* Audit + Trades */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-lg bg-slate-800/20 border border-slate-700/40">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/40">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Audit Log</p>
+            <button onClick={handleRefresh} className="p-1 hover:bg-slate-700/30 rounded transition-colors">
+              <RefreshCw size={12} className="text-slate-600" />
+            </button>
+          </div>
+          <div className="p-2">
+            <AuditLog refreshKey={refreshKey} />
+          </div>
         </div>
-        <RecentTrades />
+
+        <div className="rounded-lg bg-slate-800/20 border border-slate-700/40">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/40">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Recent Trades</p>
+          </div>
+          <RecentTrades />
+        </div>
       </div>
     </div>
   );
