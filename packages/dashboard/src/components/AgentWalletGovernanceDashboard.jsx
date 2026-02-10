@@ -353,10 +353,10 @@ function normalizeSignals(rawSignals) {
   if (!rawSignals || !Array.isArray(rawSignals)) return [];
   return rawSignals.map((sig, i) => ({
     id: sig.id || `sig_${i}`,
-    market: sig.market || sig.question || sig.title || 'Unknown Market',
+    market: sig.market || sig.market_title || sig.question || sig.title || 'Unknown Market',
     ticker: sig.ticker || sig.kalshi_ticker || sig.market_slug || '—',
     direction: (sig.direction || sig.side || 'YES').toUpperCase(),
-    price: sig.price || sig.best_price || sig.last_price || 0,
+    price: sig.price || sig.current_price || sig.best_price || sig.last_price || 0,
     arsScore: sig.ars_score ?? sig.arsScore ?? sig.score ?? 0,
     entryQuality: sig.entry_quality || sig.entryQuality || 'unknown',
     conviction: sig.conviction ?? sig.consensus ?? 0,
@@ -440,7 +440,7 @@ export default function AgentWalletGovernanceDashboard() {
   // Fetch live signals from Predictor Agent API
   const fetchSignals = useCallback(async () => {
     try {
-      const data = await predictorRequest('/signals');
+      const data = await predictorRequest('/api/signals');
       const raw = data.signals || data.results || data;
       const normalized = normalizeSignals(Array.isArray(raw) ? raw : []);
       if (normalized.length > 0) {
