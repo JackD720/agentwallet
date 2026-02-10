@@ -204,7 +204,7 @@ function SignalCard({ signal, evaluation, isActive, onClick, index, isProcessing
       cursor: "pointer",
       transition: "all 0.2s ease",
       position: "relative",
-      overflow: "hidden",
+      overflow: "visible",
     }}>
       {isProcessing && (
         <div style={{
@@ -214,7 +214,7 @@ function SignalCard({ signal, evaluation, isActive, onClick, index, isProcessing
         }} />
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: colors.text, marginBottom: 4, lineHeight: 1.3 }}>
             {signal.market}
           </div>
@@ -222,9 +222,11 @@ function SignalCard({ signal, evaluation, isActive, onClick, index, isProcessing
             {signal.ticker}
           </div>
         </div>
+        <div style={{ flexShrink: 0, marginLeft: 8 }}>
         <Badge color={signal.direction === "YES" ? "accent" : "danger"} size="sm">
-          {signal.direction}
+            {signal.direction}
         </Badge>
+      </div>
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <MiniStat label="ARS" value={(signal.arsScore || 0).toFixed(2)} good={(signal.arsScore || 0) >= 0.3} />
@@ -404,16 +406,17 @@ export default function AgentWalletGovernanceDashboard() {
       const data = await traderRequest('GET', '/dashboard');
       const bal = data.balance?.usd ?? 0;
       const gov = data.governance ?? {};
+      const wallet = gov.wallet ?? {};
       const cfg = gov.config ?? {};
 
       setWalletState(prev => ({
         ...prev,
         balance: bal,
-        dailySpend: gov.daily_spend_cents ?? 0,
-        weeklySpend: gov.weekly_spend_cents ?? 0,
-        drawdown: gov.current_drawdown_pct ?? 0,
-        consecutiveLosses: gov.consecutive_losses ?? 0,
-        peakBalance: gov.peak_balance_usd ?? bal,
+        dailySpend: wallet.daily_spend_cents ?? 0,
+        weeklySpend: wallet.weekly_spend_cents ?? 0,
+        drawdown: wallet.drawdown_pct ?? 0,
+        consecutiveLosses: wallet.consecutive_losses ?? 0,
+        peakBalance: wallet.peak_balance ?? bal,
         killSwitch: gov.kill_switch_active ?? false,
       }));
 
