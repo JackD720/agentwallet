@@ -204,7 +204,7 @@ function SignalCard({ signal, evaluation, isActive, onClick, index, isProcessing
       cursor: "pointer",
       transition: "all 0.2s ease",
       position: "relative",
-      overflow: "visible",
+      overflow: "hidden",
     }}>
       {isProcessing && (
         <div style={{
@@ -214,7 +214,7 @@ function SignalCard({ signal, evaluation, isActive, onClick, index, isProcessing
         }} />
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: colors.text, marginBottom: 4, lineHeight: 1.3 }}>
             {signal.market}
           </div>
@@ -222,11 +222,9 @@ function SignalCard({ signal, evaluation, isActive, onClick, index, isProcessing
             {signal.ticker}
           </div>
         </div>
-        <div style={{ flexShrink: 0, marginLeft: 8 }}>
         <Badge color={signal.direction === "YES" ? "accent" : "danger"} size="sm">
-            {signal.direction}
+          {signal.direction}
         </Badge>
-      </div>
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <MiniStat label="ARS" value={(signal.arsScore || 0).toFixed(2)} good={(signal.arsScore || 0) >= 0.3} />
@@ -277,8 +275,8 @@ function AuditEntry({ entry, index }) {
     return () => clearTimeout(t);
   }, [index]);
 
-  const icon = entry.decision === "approved" ? "✅" : entry.decision === "blocked" ? "🚫" : "🛑";
-  const dc = entry.decision === "approved" ? colors.accent : colors.danger;
+  const icon = entry.decision === "approved" ? "✅" : entry.decision === "blocked" ? "🚫" : entry.decision === "info" ? "ℹ️" : "🛑";
+  const dc = entry.decision === "approved" ? colors.accent : entry.decision === "info" ? colors.textDim : colors.danger;
 
   return (
     <div style={{
@@ -355,10 +353,10 @@ function normalizeSignals(rawSignals) {
   if (!rawSignals || !Array.isArray(rawSignals)) return [];
   return rawSignals.map((sig, i) => ({
     id: sig.id || `sig_${i}`,
-    market: sig.market || sig.market_title || sig.question || sig.title || 'Unknown Market',
+    market: sig.market || sig.question || sig.title || 'Unknown Market',
     ticker: sig.ticker || sig.kalshi_ticker || sig.market_slug || '—',
     direction: (sig.direction || sig.side || 'YES').toUpperCase(),
-    price: sig.price || sig.current_price || sig.best_price || sig.last_price || 0,
+    price: sig.price || sig.best_price || sig.last_price || 0,
     arsScore: sig.ars_score ?? sig.arsScore ?? sig.score ?? 0,
     entryQuality: sig.entry_quality || sig.entryQuality || 'unknown',
     conviction: sig.conviction ?? sig.consensus ?? 0,
@@ -398,6 +396,7 @@ export default function AgentWalletGovernanceDashboard() {
   const [loadingSignals, setLoadingSignals] = useState(true);
   const [loadingDash, setLoadingDash] = useState(true);
   const [runResult, setRunResult] = useState(null);
+  const [backendAudit, setBackendAudit] = useState([]);
   const auditRef = useRef(null);
 
   // Fetch live wallet state from Cloud Run
@@ -406,17 +405,16 @@ export default function AgentWalletGovernanceDashboard() {
       const data = await traderRequest('GET', '/dashboard');
       const bal = data.balance?.usd ?? 0;
       const gov = data.governance ?? {};
-      const wallet = gov.wallet ?? {};
       const cfg = gov.config ?? {};
 
       setWalletState(prev => ({
         ...prev,
         balance: bal,
-        dailySpend: wallet.daily_spend_cents ?? 0,
-        weeklySpend: wallet.weekly_spend_cents ?? 0,
-        drawdown: wallet.drawdown_pct ?? 0,
-        consecutiveLosses: wallet.consecutive_losses ?? 0,
-        peakBalance: wallet.peak_balance ?? bal,
+        dailySpend: gov.daily_spend_cents ?? 0,
+        weeklySpend: gov.weekly_spend_cents ?? 0,
+        drawdown: gov.current_drawdown_pct ?? 0,
+        consecutiveLosses: gov.consecutive_losses ?? 0,
+        peakBalance: gov.peak_balance_usd ?? bal,
         killSwitch: gov.kill_switch_active ?? false,
       }));
 
@@ -456,13 +454,58 @@ export default function AgentWalletGovernanceDashboard() {
     }
   }, []);
 
+  // Fetch audit log from backend (real trade history)
+  const fetchAudit = useCallback(async () => {
+    try {
+      const data = await traderRequest('GET', '/audit');
+      const entries = (data.entries || []).map((e, i) => ({
+        evalId: e._logged_at || `audit_${i}`,
+        timestamp: e._logged_at ? new Date(e._logged_at).toLocaleTimeString() : '—',
+        market: e.signal || e.market || e.event || 'Unknown',
+        direction: e.direction || '—',
+        decision: e.event === 'TRADE_EXECUTED' ? 'approved'
+          : e.event === 'BLOCKED' ? 'blocked'
+          : e.decision?.toLowerCase() || 'info',
+        blockedBy: e.blocked_by || e.governance?.failed_rules || [],
+        cost: e.cost_cents || null,
+        latencyMs: e.governance?.latency_ms || '—',
+        source: 'backend',
+      }));
+      if (entries.length > 0) {
+        setBackendAudit(entries);
+      }
+    } catch (e) {
+      console.error('Audit fetch failed:', e);
+    }
+  }, []);
+
   useEffect(() => {
     fetchDashboard();
     fetchSignals();
+    fetchAudit();
     const dashInterval = setInterval(fetchDashboard, 15000);
     const sigInterval = setInterval(fetchSignals, 60000);
-    return () => { clearInterval(dashInterval); clearInterval(sigInterval); };
-  }, [fetchDashboard, fetchSignals]);
+    const auditInterval = setInterval(fetchAudit, 30000);
+    return () => { clearInterval(dashInterval); clearInterval(sigInterval); clearInterval(auditInterval); };
+  }, [fetchDashboard, fetchSignals, fetchAudit]);
+
+  // Auto-run governance evaluation when signals load (instant, no animation)
+  useEffect(() => {
+    if (signals.length === 0 || isRunning) return;
+    let state = { ...walletState };
+    const newEvals = {};
+    const newAuditEntries = [];
+
+    for (const signal of signals) {
+      const { evaluation, newState, entry } = processSignal(signal, state);
+      state = newState;
+      newEvals[signal.id] = evaluation;
+      newAuditEntries.push(entry);
+    }
+
+    setEvaluations(newEvals);
+    setProcessedCount(signals.length);
+  }, [signals]);
 
   const processSignal = (signal, state) => {
     const ev = evaluateSignal(signal, state, govConfig);
@@ -809,16 +852,26 @@ export default function AgentWalletGovernanceDashboard() {
             display: "flex", justifyContent: "space-between",
           }}>
             <span>Audit Log</span>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{auditLog.length} entries</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{(auditLog.length + backendAudit.length)} entries</span>
           </div>
-          {auditLog.length === 0 ? (
+          {(auditLog.length + backendAudit.length) === 0 ? (
             <div style={{ padding: 20, textAlign: "center", color: colors.textMuted, fontSize: 11 }}>
               Audit entries will appear here as signals are processed
             </div>
           ) : (
-            auditLog.map((entry, i) => (
-              <AuditEntry key={entry.evalId} entry={entry} index={i} />
-            ))
+            <>
+              {auditLog.map((entry, i) => (
+                <AuditEntry key={entry.evalId} entry={entry} index={i} />
+              ))}
+              {backendAudit.length > 0 && auditLog.length > 0 && (
+                <div style={{ fontSize: 9, color: colors.textMuted, textAlign: "center", padding: "8px 0", borderBottom: `1px solid ${colors.border}`, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  ── Backend Trade History ──
+                </div>
+              )}
+              {backendAudit.map((entry, i) => (
+                <AuditEntry key={`be_${entry.evalId}`} entry={entry} index={i} />
+              ))}
+            </>
           )}
         </div>
       </div>
